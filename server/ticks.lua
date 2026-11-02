@@ -71,3 +71,19 @@ AddEventHandler('onResourceStop', function(res)
         TC.deleteNet(run.trailerNet)
     end
 end)
+
+-- Self-check: if a file listed in fxmanifest.lua didn't load (usually because the
+-- server is still using a cached old manifest), say so loudly.
+CreateThread(function()
+    Wait(2000)
+    local missing = {}
+    for fn, file in pairs({ propPoint = 'server/places.lua', cadRegisterTruck = 'server/cad.lua', startNpcRun = 'server/runs.lua', tickDispatch = 'server/dispatch.lua' }) do
+        if type(TC[fn]) ~= 'function' then missing[#missing + 1] = file end
+    end
+    if #missing > 0 then
+        print(('^1[truckco] NOT LOADED: %s. Run "refresh" then "ensure %s" (FiveM caches fxmanifest.lua), and make sure the whole folder is up to date.^0')
+            :format(table.concat(missing, ', '), GetCurrentResourceName()))
+    else
+        print(('^2[truckco] %s v%s loaded^0'):format(GetCurrentResourceName(), GetResourceMetadata(GetCurrentResourceName(), 'version', 0) or '?'))
+    end
+end)

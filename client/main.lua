@@ -103,10 +103,26 @@ RegisterNetEvent('truckco:client:properties', function(state)
 end)
 
 local function init()
-    TCC.properties = lib.callback.await('truckco:server:getProperties', false) or {}
+    -- draw blips + door targets from config right away, so they never depend on the server answering
     refreshBlips()
     setupZones()
     zonesReady = true
+    -- then pull ownership / moved entrances from the server (non-blocking for the above)
+    local p, done = promise.new(), false
+    local function finish(v) if not done then done = true p:resolve(v) end end
+    CreateThread(function()
+        local ok, res = pcall(lib.callback.await, 'truckco:server:getProperties', false)
+        finish(ok and res or nil)
+    end)
+    SetTimeout(15000, function() finish(nil) end)
+    local state = Citizen.Await(p)
+    if type(state) == 'table' then
+        TCC.properties = state
+        refreshBlips()
+        setupZones()
+    else
+        print('[truckco] could not get depot state from the server; using config positions. Check the server console for truckco errors.')
+    end
     if TCC.onLoaded then TCC.onLoaded() end
 end
 

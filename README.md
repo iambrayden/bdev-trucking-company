@@ -163,6 +163,17 @@ Walk to the orange door marker and press **E**. You can also use the ox_target s
 
 Uncomment the `office_shell` example in `Config.Interiors`, set its `model` to your shell (e.g. `shell_office1`), adjust the offsets, and set a property's `interior = 'office_shell'`.
 
+## Updating & troubleshooting
+
+- **Always replace the whole folder** when updating, then run in the server console:
+  ```
+  refresh
+  ensure bdev-trucking-company
+  ```
+  FiveM caches `fxmanifest.lua` until you `refresh`. A plain `restart` / `ensure` silently skips any newly added files, and you get errors like `attempt to call a nil value (field 'openTablet')`.
+- On start the server console prints `bdev-trucking-company v… loaded`, or `NOT LOADED: <files>` if something was skipped.
+- Blips and door targets come from the config immediately. If they're missing, the client script itself didn't load, so check F8.
+
 ## Notes
 
 - Company money is stored in SQL and changed with atomic `UPDATE`s, so two people spending at once can't overdraw it.

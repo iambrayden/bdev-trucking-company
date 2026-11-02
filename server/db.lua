@@ -24,15 +24,18 @@ MySQL.ready(function() CreateThread(function()
             print(('^3[truckco] added column %s.%s^0'):format(tbl, col))
         end
     end
-    ensureColumn('truckco_companies', 'layout', 'LONGTEXT NULL')
-    ensureColumn('truckco_companies', 'signs', 'LONGTEXT NULL')
+    for _, col in ipairs({ { 'layout', 'LONGTEXT NULL' }, { 'signs', 'LONGTEXT NULL' } }) do
+        local ok, err = pcall(ensureColumn, 'truckco_companies', col[1], col[2])
+        if not ok then print('^1[truckco] could not add column ' .. col[1] .. ': ' .. tostring(err) .. '^0') end
+    end
 
     -- contracts that were mid-flight with a player when the server stopped go back to "awarded"
-    MySQL.update.await("UPDATE truckco_contracts SET status = 'completed' WHERE status = 'delivered'")
-    MySQL.update.await("UPDATE truckco_contracts SET status = 'awarded', employee_id = NULL, truck_id = NULL, started_at = NULL, driver_kind = NULL WHERE status IN ('assigned','in_progress') AND driver_kind = 'player'")
-    MySQL.update.await("UPDATE truckco_trucks t LEFT JOIN truckco_contracts c ON c.truck_id = t.id AND c.status IN ('assigned','in_progress') SET t.status = 'available' WHERE t.status IN ('in_use','reserved') AND c.id IS NULL")
-    MySQL.update.await("UPDATE truckco_employees e LEFT JOIN truckco_contracts c ON c.employee_id = e.id AND c.status IN ('assigned','in_progress') SET e.status = 'idle' WHERE e.status IN ('on_job','assigned') AND c.id IS NULL")
-    TC.loadSettings()
+    pcall(function() MySQL.update.await("UPDATE truckco_contracts SET status = 'completed' WHERE status = 'delivered'") end)
+    pcall(function() MySQL.update.await("UPDATE truckco_contracts SET status = 'awarded', employee_id = NULL, truck_id = NULL, started_at = NULL, driver_kind = NULL WHERE status IN ('assigned','in_progress') AND driver_kind = 'player'") end)
+    pcall(function() MySQL.update.await("UPDATE truckco_trucks t LEFT JOIN truckco_contracts c ON c.truck_id = t.id AND c.status IN ('assigned','in_progress') SET t.status = 'available' WHERE t.status IN ('in_use','reserved') AND c.id IS NULL") end)
+    pcall(function() MySQL.update.await("UPDATE truckco_employees e LEFT JOIN truckco_contracts c ON c.employee_id = e.id AND c.status IN ('assigned','in_progress') SET e.status = 'idle' WHERE e.status IN ('on_job','assigned') AND c.id IS NULL") end)
+    local okS, errS = pcall(TC.loadSettings)
+    if not okS then print('^1[truckco] could not load settings: ' .. tostring(errS) .. '^0') end
     TC.ready = true
     print('^2[truckco] database ready^0')
 end) end)

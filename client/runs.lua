@@ -234,3 +234,15 @@ end)
 AddEventHandler('onResourceStop', function(res)
     if res == GetCurrentResourceName() then text(nil) end
 end)
+
+-- Self-check (this is the last client file): report files that didn't load.
+CreateThread(function()
+    Wait(3000)
+    local missing = {}
+    for fn, file in pairs({ openTablet = 'client/tablet.lua', startSignEditor = 'client/signs.lua', enterOffice = 'client/office.lua' }) do
+        if type(TCC[fn]) ~= 'function' then missing[#missing + 1] = file end
+    end
+    if #missing > 0 then
+        print(('^1[truckco] NOT LOADED: %s. Server owner: run "refresh" then "ensure %s".^0'):format(table.concat(missing, ', '), GetCurrentResourceName()))
+    end
+end)

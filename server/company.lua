@@ -24,8 +24,14 @@ function TC.broadcastProperties()
 end
 
 lib.callback.register('truckco:server:getProperties', function()
-    while not TC.ready do Wait(100) end
-    return propertyState()
+    local deadline = GetGameTimer() + 15000
+    while not TC.ready and GetGameTimer() < deadline do Wait(100) end
+    local ok, state = pcall(propertyState)
+    if not ok then
+        print('^1[truckco] getProperties failed: ' .. tostring(state) .. '^0')
+        return nil
+    end
+    return state
 end)
 
 local function sanitizeName(name)
@@ -310,8 +316,10 @@ function TC.broadcastSigns()
 end
 
 lib.callback.register('truckco:server:getSigns', function()
-    while not TC.ready do Wait(100) end
-    return signsPayload()
+    local deadline = GetGameTimer() + 15000
+    while not TC.ready and GetGameTimer() < deadline do Wait(100) end
+    local ok, list = pcall(signsPayload)
+    return ok and list or {}
 end)
 
 lib.callback.register('truckco:server:getSignEditor', function(src)
