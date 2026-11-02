@@ -4,6 +4,25 @@ Player-owned trucking companies for **Qbox (qbx_core)** FiveM servers.
 
 Buy a depot down by the docks, build out the empty office shell, hire staff (NPCs **and** real players), pay to train and certify them, buy and insure a fleet, win loads on a shared bid board and hand the busywork to dispatchers.
 
+![Overview](docs/screenshots/00-overview.jpg)
+
+## Screenshots
+
+> UI mockups of the in-game menus (ox_lib / ox_target style), using the resource's real menu text and default config values. Source and generator are in [`docs/mockups`](docs/mockups).
+
+| | |
+|---|---|
+| ![Buy a depot](docs/screenshots/01-buy-property.jpg) **Buy a depot at the docks** | ![Management](docs/screenshots/03-management.jpg) **Company management laptop** |
+| ![Employees](docs/screenshots/04-employees.jpg) **NPC + player staff** | ![Applicants](docs/screenshots/05-applicants.jpg) **Hire NPC applicants** |
+| ![Hire a player](docs/screenshots/06-hire-player.jpg) **Hire real players** | ![Job offer](docs/screenshots/07-job-offer.jpg) **The job offer players receive** |
+| ![Training](docs/screenshots/08-training.jpg) **Pay to train & certify** | ![Fleet](docs/screenshots/09-fleet.jpg) **Fleet with wear & tear** |
+| ![Insurance](docs/screenshots/10-insurance.jpg) **Per-truck insurance** | ![Bid board](docs/screenshots/11-bid-board.jpg) **Shared job bid board** |
+| ![Place bid](docs/screenshots/12-place-bid.jpg) **Bidding** | ![Loads](docs/screenshots/13-company-loads.jpg) **Company loads** |
+| ![Assign](docs/screenshots/14-assign.jpg) **Assign driver + truck** | ![Dispatch](docs/screenshots/15-dispatch.jpg) **Dispatch automation** |
+| ![Upgrades](docs/screenshots/16-upgrades.jpg) **Build out the office shell** | ![Time clock](docs/screenshots/19-time-clock.jpg) **Time clock for player staff** |
+| ![Driving](docs/screenshots/17-driving.jpg) **Player drivers really drive** | ![Unloading](docs/screenshots/18-unloading.jpg) **Validated deliveries** |
+| ![Ledger](docs/screenshots/20-finances.jpg) **Full company ledger** | ![Found company](docs/screenshots/02-found-company.jpg) **Name your company** |
+
 ## Features
 
 | Area | What you get |

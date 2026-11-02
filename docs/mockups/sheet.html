@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1600px;background:#141517;font-family:Roboto,sans-serif;color:#f1f3f5;padding:40px}
+h1{font-size:44px;font-weight:900;letter-spacing:.5px} h1 span{color:#fd7e14}
+p{color:#909296;font-size:18px;margin:6px 0 28px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.grid figure{background:#25262b;border-radius:6px;overflow:hidden}
+.grid img{width:100%;display:block}
+.grid figcaption{font-size:14px;padding:8px 10px;color:#c1c2c5}
+</style></head><body>
+<h1>BDEV <span>Trucking Company</span></h1>
+<p>Player-owned trucking companies for Qbox: buy a depot, hire NPC &amp; player staff, train, insure, bid, dispatch, drive.</p>
+<div class="grid" id="g"></div>
+<script>
+const items=[['01-buy-property','Buy a depot'],['03-management','Management laptop'],['04-employees','NPC + player staff'],['05-applicants','Hire applicants'],
+['08-training','Training & certs'],['09-fleet','Fleet & wear'],['10-insurance','Insurance'],['11-bid-board','Bid board'],
+['13-company-loads','Company loads'],['15-dispatch','Dispatch automation'],['16-upgrades','Office upgrades'],['17-driving','Player driving']];
+document.getElementById('g').innerHTML=items.map(([f,t])=>`<figure><img src="../screenshots/${f}.jpg"><figcaption>${t}</figcaption></figure>`).join('');
+</script></body></html>
