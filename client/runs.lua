@@ -53,27 +53,38 @@ end
 --------------------------------------------------------------------------------
 -- On-screen job panel (rendered by the tablet NUI page, without focus)
 --------------------------------------------------------------------------------
+local function released(c) return IsControlJustReleased(0, c) or IsDisabledControlJustReleased(0, c) end
+
+--- target, step text, step number, total steps
 local function stepInfo()
     if not run then return nil end
+    local stops = run.stops or {}
+    local total = 3 + #stops
     if run.stage == 'pickup' then
         return run.pickup, run.class == 'semi'
             and ('Drive to %s and hook up the trailer'):format(run.pickup.label)
-            or ('Drive to %s and load the cargo (E)'):format(run.pickup.label), 1
+            or ('Drive to %s and load the cargo (E)'):format(run.pickup.label), 1, total
+    elseif run.stage == 'collect' then
+        local i = run.stopIndex or 1
+        local st = stops[i]
+        if st then
+            return st, ('Collect more cargo at %s (E) - stop %d/%d'):format(st.label, i, #stops), 1 + i, total
+        end
     elseif run.stage == 'dropoff' then
         return run.dropoff, run.class == 'semi'
             and ('Deliver the trailer to %s'):format(run.dropoff.label)
-            or ('Deliver the cargo to %s'):format(run.dropoff.label), 2
+            or ('Deliver the cargo to %s'):format(run.dropoff.label), 2 + #stops, total
     elseif run.stage == 'return' then
-        return run.returnPoint, 'Bring the truck back to the yard', 3
+        return run.returnPoint, 'Bring the truck back to the yard', 3 + #stops, total
     end
 end
 
 local function hud()
-    local target, step, n = stepInfo()
+    local target, step, n, total = stepInfo()
     if not target then return SendNUIMessage({ action = 'hud', data = false }) end
     local dist = #(GetEntityCoords(cache.ped) - vec3(target.x, target.y, target.z))
     SendNUIMessage({ action = 'hud', data = {
-        id = run.contractId, cargo = run.cargo, step = step, stepNo = n,
+        id = run.contractId, cargo = run.cargo, step = step, stepNo = n, stepTotal = total, express = run.express,
         distance = dist, deadline = run.deadlineAt and math.max(0, run.deadlineAt - GetGameTimer() // 1000) or nil,
         late = run.deadlineAt and (GetGameTimer() // 1000) > run.deadlineAt,
         from = run.pickup and run.pickup.label, to = run.dropoff and run.dropoff.label,
@@ -113,6 +124,9 @@ end
 local function stageBlip()
     if run.stage == 'pickup' then
         setBlip(run.pickup, ('Pickup: %s'):format(run.cargo), 478, 5)
+    elseif run.stage == 'collect' then
+        local st = (run.stops or {})[run.stopIndex or 1]
+        if st then setBlip(st, ('Collect: %s'):format(st.label), 478, 5) end
     elseif run.stage == 'dropoff' then
         setBlip(run.dropoff, ('Deliver: %s'):format(run.dropoff.label), 479, 2)
     elseif run.stage == 'return' then
@@ -121,6 +135,14 @@ local function stageBlip()
     local _, step = stepInfo()
     if step then TCC.notify(step .. '. Follow the GPS.', 'inform') end
     hud()
+end
+
+--- Apply the next stage the server tells us (pickup -> collect stops -> dropoff).
+local function advance(res)
+    if not res or not res.ok then return end
+    run.stage = (res.data and res.data.stage) or 'dropoff'
+    run.stopIndex = res.data and res.data.stopIndex or nil
+    stageBlip()
 end
 
 local function trailerAttached(truck, trailer)
@@ -161,8 +183,7 @@ local function loop()
                         end
                         if inTruck and trailerAttached(truck, trailer) and not busy then
                             busy = true
-                            local res = TCC.call('loaded', run.contractId)
-                            if res.ok then run.stage = 'dropoff' stageBlip() end
+                            advance(TCC.call('loaded', run.contractId))
                             busy = false
                         end
                     end
@@ -172,15 +193,46 @@ local function loop()
                         marker(run.pickup, 255, 200, 0)
                         if dist < 6.0 and inTruck then
                             prompt = '[E] Load cargo'
-                            if IsControlJustReleased(0, 38) and not busy then
+                            if released(38) and not busy then
                                 busy = true
                                 text(nil)
                                 if lib.progressCircle({ duration = 8000, label = 'Loading cargo...', position = 'bottom', canCancel = true,
                                     disable = { move = true, car = true, combat = true } }) then
-                                    local res = TCC.call('loaded', run.contractId)
-                                    if res.ok then run.stage = 'dropoff' stageBlip() end
+                                    advance(TCC.call('loaded', run.contractId))
                                 end
                                 busy = false
+                            end
+                        end
+                    end
+                end
+
+            elseif run.stage == 'collect' then
+                local st = (run.stops or {})[run.stopIndex or 1]
+                if st then
+                    local d = vec3(st.x, st.y, st.z)
+                    local dist = #(pos - d)
+                    if dist < 60.0 then
+                        sleep = 0
+                        marker(d, 255, 200, 0)
+                        if dist < 10.0 then
+                            local trailer = run.trailerNet and NetworkDoesNetworkIdExist(run.trailerNet) and NetworkGetEntityFromNetworkId(run.trailerNet)
+                            if run.class == 'semi' and not (inTruck and trailerAttached(truck, trailer)) then
+                                prompt = 'Bring your truck and trailer into the marker'
+                            elseif not inTruck then
+                                prompt = 'Get back in your truck'
+                            elseif GetEntitySpeed(truck) > 1.0 then
+                                prompt = 'Come to a stop'
+                            else
+                                prompt = '[E] Collect cargo'
+                                if released(38) and not busy then
+                                    busy = true
+                                    text(nil)
+                                    if lib.progressCircle({ duration = 7000, label = 'Loading cargo...', position = 'bottom', canCancel = true,
+                                        disable = { move = true, car = true, combat = true } }) then
+                                        advance(TCC.call('collected', run.contractId))
+                                    end
+                                    busy = false
+                                end
                             end
                         end
                     end
@@ -202,7 +254,7 @@ local function loop()
                             prompt = 'Come to a stop'
                         else
                             prompt = '[E] Deliver load'
-                            if IsControlJustReleased(0, 38) and not busy then
+                            if released(38) and not busy then
                                 busy = true
                                 text(nil)
                                 if lib.progressCircle({ duration = 10000, label = 'Unloading...', position = 'bottom', canCancel = true,
@@ -232,7 +284,7 @@ local function loop()
                             prompt = 'Bring the company truck here'
                         else
                             prompt = '[E] Park truck'
-                            if IsControlJustReleased(0, 38) and not busy then
+                            if released(38) and not busy then
                                 busy = true
                                 text(nil)
                                 TaskLeaveVehicle(ped, truck, 0)

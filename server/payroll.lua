@@ -33,6 +33,7 @@ local function runPayroll(company)
     if wages > 0 then TC.spend(company.id, wages, ('Payroll (%d staff)'):format(#staff), true, true) end
     if premiums > 0 then TC.spend(company.id, premiums, ('Insurance premiums (%d trucks)'):format(#trucks), true, true) end
     if upkeep > 0 then TC.spend(company.id, upkeep, 'Property upkeep', true, true) end
+    local loanPaid = TC.loanPayroll and TC.loanPayroll(company) or 0
 
     for _, e in ipairs(paidPlayers) do
         MySQL.update.await('UPDATE truckco_employees SET pending_pay = pending_pay + ? WHERE id = ?', { e.wage, e.id })
@@ -43,7 +44,7 @@ local function runPayroll(company)
     MySQL.update.await('UPDATE truckco_companies SET last_payroll = ? WHERE id = ?', { TC.now(), company.id })
 
     local fresh = TC.getCompany(company.id)
-    local total = wages + premiums + upkeep
+    local total = wages + premiums + upkeep + loanPaid
     if fresh and TC.isSuspended(fresh) then
         local quitChance = Config.NPC.quitChanceUnpaid * TC.effects(fresh).quitMult
         local quitters = {}
@@ -56,8 +57,9 @@ local function runPayroll(company)
         TC.notifyCompany(company.id, ('Payroll %s pushed the company past its overdraft. Bidding suspended.%s'):format(
             TCShared.money(total), #quitters > 0 and (' Quit: ' .. table.concat(quitters, ', ')) or ''), 'error', 'finance')
     elseif total > 0 then
-        TC.notifyCompany(company.id, ('Payroll run: %s (wages %s, insurance %s, upkeep %s).'):format(
-            TCShared.money(total), TCShared.money(wages), TCShared.money(premiums), TCShared.money(upkeep)), 'inform', 'finance')
+        TC.notifyCompany(company.id, ('Payroll run: %s (wages %s, insurance %s, upkeep %s%s).'):format(
+            TCShared.money(total), TCShared.money(wages), TCShared.money(premiums), TCShared.money(upkeep),
+            loanPaid > 0 and (', loan ' .. TCShared.money(loanPaid)) or ''), 'inform', 'finance')
     end
 end
 

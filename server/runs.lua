@@ -144,6 +144,8 @@ lib.callback.register('truckco:server:startPlayerRun', function(src, contractId)
         cargo = c.cargoLabel,
         pickup = c.pickup,
         dropoff = c.dropoff,
+        stops = c.stops,
+        express = c.express,
         returnPoint = TC.propPoint(company.property, 'truckReturn', company),
         pay = c.award_amount,
         cut = company.owner ~= emp.citizenid and math.floor((c.award_amount or 0) * Config.Runs.driverCommission) or 0,
@@ -185,9 +187,38 @@ lib.callback.register('truckco:server:loaded', function(src, contractId)
             return TC.result(false, 'Hook up the trailer first.')
         end
     end
-    run.stage = 'dropoff'
     run.loadedAt = TC.now()
-    return TC.result(true, ('Loaded. Deliver to %s.'):format(c.dropoff.label))
+    if #c.stops > 0 then
+        run.stage, run.stopIndex = 'collect', 1
+        return TC.result(true, ('Loaded. Next: collect more cargo at %s (stop 1/%d).'):format(c.stops[1].label, #c.stops), { stage = 'collect', stopIndex = 1 })
+    end
+    run.stage = 'dropoff'
+    return TC.result(true, ('Loaded. Deliver to %s.'):format(c.dropoff.label), { stage = 'dropoff' })
+end)
+
+--- Multi-stop: cargo collected at the current extra stop.
+lib.callback.register('truckco:server:collected', function(src, contractId)
+    local run = getRun(src, contractId)
+    if not run or run.stage ~= 'collect' then return TC.result(false, 'No collection stop right now.') end
+    local c = TC.getContract(contractId)
+    local stop = c.stops[run.stopIndex]
+    if not stop then return TC.result(false, 'Unknown stop.') end
+    local truck = TC.entityFromNet(run.truckNet)
+    if not truck then return TC.result(false, 'Where is your truck?') end
+    if TC.distance(GetEntityCoords(truck), stop) > 40.0 then return TC.result(false, ('Bring the truck to %s.'):format(stop.label)) end
+    if run.class == 'semi' then
+        local trailer = TC.entityFromNet(run.trailerNet)
+        if not trailer or TC.distance(GetEntityCoords(trailer), GetEntityCoords(truck)) > 20.0 then
+            return TC.result(false, 'Bring the trailer with you.')
+        end
+    end
+    if run.stopIndex < #c.stops then
+        run.stopIndex = run.stopIndex + 1
+        local nxt = c.stops[run.stopIndex]
+        return TC.result(true, ('Collected. Next stop: %s (%d/%d).'):format(nxt.label, run.stopIndex, #c.stops), { stage = 'collect', stopIndex = run.stopIndex })
+    end
+    run.stage, run.stopIndex = 'dropoff', nil
+    return TC.result(true, ('All cargo collected. Deliver to %s.'):format(c.dropoff.label), { stage = 'dropoff' })
 end)
 
 lib.callback.register('truckco:server:deliver', function(src, contractId)
@@ -329,6 +360,7 @@ lib.callback.register('truckco:server:getActiveRun', function(src)
             return TC.result(true, nil, {
                 contractId = id, truckNet = run.truckNet, trailerNet = run.trailerNet, class = run.class,
                 trailer = c.trailer, cargo = c.cargoLabel, pickup = c.pickup, dropoff = c.dropoff, stage = run.stage,
+                stops = c.stops, stopIndex = run.stopIndex, express = c.express,
                 returnPoint = TC.propPoint(company.property, 'truckReturn', company),
                 pay = c.award_amount, distance = c.distance,
                 cut = company.owner ~= run.cid and math.floor((c.award_amount or 0) * Config.Runs.driverCommission) or 0,

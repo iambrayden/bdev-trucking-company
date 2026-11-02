@@ -62,6 +62,8 @@ function certNames(list) {
   return out.length ? out.join(', ') : 'None';
 }
 function certsOf(map) { return Object.keys(obj(map)); }
+const vehLabel = (cls) => (cls === 'semi' ? 'Semi (trailer at pickup)' : 'Box truck');
+const loadTags = (c) => `${c.express ? '<span class="chip yellow"><i class="fa-solid fa-bolt"></i>Express</span> ' : ''}${arr(c.stops).length ? `<span class="chip blue"><i class="fa-solid fa-route"></i>${arr(c.stops).length + 2} stops</span> ` : ''}`;
 const healthColor = (h) => (h > 60 ? 'green' : h > S.cfg.fleet.minDispatchCondition ? 'yellow' : 'red');
 const truckImg = (model) => `https://docs.fivem.net/vehicles/${model}.webp`;
 
@@ -234,10 +236,40 @@ VIEWS.finance = async () => {
       <button class="btn block" ${act(async () => { const v = Number($('#wd').value); if (v > 0) await run('withdraw', v); })}><i class="fa-solid fa-arrow-up"></i>Withdraw</button></div>`;
     h += `</div>`;
   }
+  const lr = await call('getLoans');
+  if (lr.ok) {
+    const L = lr.data;
+    const loans = arr(L.loans);
+    h += `<div class="card mt12"><h3>Business loans <span class="chip">${Math.round(L.interest * 100)}% • ${L.installments} payrolls</span></h3>`;
+    loans.forEach((l) => {
+      const paid = l.principal * (1 + L.interest) - l.balance;
+      const pct = Math.max(0, Math.min(100, (paid / (l.principal * (1 + L.interest))) * 100));
+      h += `<div class="item" style="margin-bottom:8px"><div class="ic yellow"><i class="fa-solid fa-landmark"></i></div>
+        <div class="main"><div class="t">Loan #${l.id}: ${money(l.balance)} left</div><div class="d">Borrowed ${money(l.principal)} • ${money(l.installment)} taken each payroll</div>
+        <div class="bar yellow mt8"><div style="width:${pct}%"></div></div></div>
+        ${owner ? `<button class="btn sm" ${act(async () => { if (await confirmBox('Repay loan', `Pay off the remaining <b>${money(l.balance)}</b> now from company funds?`, 'Pay off')) run('repayLoan', l.id); })}>Pay off</button>` : ''}</div>`;
+    });
+    if (owner && loans.length < L.maxActive) {
+      if (L.reputation < L.minReputation) {
+        h += `<div class="muted small">The bank wants at least ${L.minReputation} reputation before lending (you have ${L.reputation}).</div>`;
+      } else {
+        h += `<div class="field"><label>Borrow up to ${money(L.available)} (limit grows with reputation)</label><div class="money-input"><span>${esc(S.cfg.currency)}</span><input class="input" id="loan-amt" type="number" min="1000" max="${L.available}" placeholder="Amount"></div></div>
+          <button class="btn primary block" ${act(async () => {
+            const amt = Number($('#loan-amt').value);
+            if (!(amt >= 1000)) return toast('Minimum loan is ' + money(1000) + '.', false);
+            const total = Math.floor(amt * (1 + L.interest));
+            if (await confirmBox('Take out loan', `Borrow <b>${money(amt)}</b>?<br>You repay <b>${money(total)}</b>: ${money(Math.ceil(total / L.installments))} each payroll for ${L.installments} payrolls, taken automatically.`, 'Take loan')) run('takeLoan', amt);
+          })}><i class="fa-solid fa-landmark"></i>Take out loan</button>`;
+      }
+    } else if (!loans.length) {
+      h += `<div class="muted small">No active loans. Only the owner can borrow.</div>`;
+    }
+    h += `</div>`;
+  }
   h += `<div class="card mt12"><h3>Where the money goes</h3><div class="kv">
     <div class="k">Income</div><div class="v">Delivered loads, insurance claims, sold trucks</div>
-    <div class="k">Every payroll</div><div class="v">Wages, insurance premiums, property upkeep</div>
-    <div class="k">One-off</div><div class="v">Trucks, repairs, training, recruiter fees, upgrades</div>
+    <div class="k">Every payroll</div><div class="v">Wages, insurance premiums, property upkeep, loan installments</div>
+    <div class="k">One-off</div><div class="v">Trucks, repairs, training, recruiter fees, upgrades, bonuses</div>
     <div class="k">Penalties</div><div class="v">Failed loads, truck recovery, driver commission</div>
   </div></div>`;
   h += `</div><div>`;
@@ -271,18 +303,24 @@ VIEWS.board = async () => {
     h += `<div class="item click ${c.id === sel.id ? 'sel' : ''} ${c.eligible ? '' : 'locked'}" ${act(() => { S.sel.board = c.id; render(); })}>
       <div class="ic ${c.my_bid ? 'green' : 'accent'}"><i class="fa-solid fa-${c.class === 'semi' ? 'trailer' : 'box'}"></i></div>
       <div class="main"><div class="t">#${c.id} ${esc(c.cargoLabel)} → ${esc(c.dropoff.label)}</div>
-      <div class="d">${c.distance.toFixed(1)} km • closes in ${count(c.closesIn, 'closed')} • ${c.bid_count} bid${c.bid_count === 1 ? '' : 's'}</div></div>
+      <div class="d">${loadTags(c)}${c.distance.toFixed(1)} km • closes in ${count(c.closesIn, 'closed')} • ${c.bid_count} bid${c.bid_count === 1 ? '' : 's'}</div></div>
       <div class="end"><div class="bold">${money(c.max_pay)}</div>${c.my_bid ? `<span class="chip green">your bid ${money(c.my_bid)}</span>` : c.eligible ? '' : `<span class="chip">rep ${c.minRep}</span>`}</div></div>`;
   });
   h += `</div><div class="card">`;
   const minBid = Math.floor(sel.max_pay * d.minBidPct);
   const start = sel.my_bid || Math.floor(sel.max_pay * 0.9 / 50) * 50;
-  h += `<h3>Load #${sel.id} <span class="chip ${sel.class === 'semi' ? 'blue' : 'accent'}">${sel.class === 'semi' ? 'Semi + trailer' : 'Box truck'}</span></h3>
-    <div style="font-size:18px;font-weight:700">${esc(sel.cargoLabel)}</div>
-    <div class="muted mt8"><i class="fa-solid fa-location-dot"></i> ${esc(sel.pickup.label)} &nbsp;→&nbsp; <i class="fa-solid fa-flag-checkered"></i> ${esc(sel.dropoff.label)}</div>
+  const stops = arr(sel.stops);
+  h += `<h3>Load #${sel.id} <span class="chip ${sel.class === 'semi' ? 'blue' : 'accent'}">${vehLabel(sel.class)}</span></h3>
+    <div style="font-size:18px;font-weight:700">${esc(sel.cargoLabel)} ${loadTags(sel)}</div>
+    <div class="muted mt8"><i class="fa-solid fa-location-dot"></i> ${esc(sel.pickup.label)}${stops.map((st) => ` → <i class="fa-solid fa-box"></i> ${esc(st.label)}`).join('')} &nbsp;→&nbsp; <i class="fa-solid fa-flag-checkered"></i> ${esc(sel.dropoff.label)}</div>
+    ${sel.class === 'semi' ? '<div class="muted small mt8"><i class="fa-solid fa-trailer"></i> The customer\'s trailer waits at the pickup; you supply the truck.</div>' : ''}
+    ${stops.length ? `<div class="muted small mt8"><i class="fa-solid fa-route"></i> Multi-stop: collect more cargo at ${stops.length} stop${stops.length > 1 ? 's' : ''} before delivering.</div>` : ''}
+    ${sel.express ? '<div class="small mt8" style="color:var(--yellow)"><i class="fa-solid fa-bolt"></i> Express: tighter deadline, higher pay.</div>' : ''}`;
+  h += `
     <div class="kv mt16">
       <div class="k">Max pay</div><div class="v">${money(sel.max_pay)}</div>
       <div class="k">Distance</div><div class="v">${sel.distance.toFixed(1)} km</div>
+      <div class="k">Vehicle</div><div class="v">${vehLabel(sel.class)}</div>
       <div class="k">Required certs</div><div class="v">${esc(certNames(sel.certs))}</div>
       <div class="k">Min. reputation</div><div class="v">${sel.minRep}</div>
       <div class="k">Bidding closes</div><div class="v">${count(sel.closesIn, 'closed')}</div>
@@ -314,7 +352,7 @@ VIEWS.loads = async () => {
   h += `<div class="list">`;
   list.forEach((c) => {
     const [label, color] = LOAD_STATUS[c.status] || [c.status, ''];
-    let info = `${c.distance.toFixed(1)} km`;
+    let info = `${loadTags(c)}${vehLabel(c.class)} • certs: ${esc(certNames(c.certs))} • ${c.distance.toFixed(1)} km${arr(c.stops).length ? ' via ' + arr(c.stops).map((st) => esc(st.label)).join(', ') : ''}`;
     if (c.driver_name) info += ` • <i class="fa-solid fa-user"></i> ${esc(c.driver_name)}`;
     if (c.truck_plate) info += ` • <i class="fa-solid fa-truck"></i> ${esc(c.truck_plate)}`;
     if (c.status === 'awarded' && c.acceptIn != null) info += ` • assign within ${count(c.acceptIn, 'expired')}`;
@@ -398,6 +436,17 @@ VIEWS.employees = async () => {
       <button class="btn sm" ${act(() => run('setWage', e.id, Number($('#emp-wage').value)))}>Set wage</button></div>
       <div class="muted small mt8">Range ${money(role.minWage)} – ${money(role.maxWage)} per shift</div>`;
   }
+  if (can('finance') && e.kind === 'player') {
+    h += `<h3 class="mt16">Give a bonus</h3>
+      <div class="row"><div class="money-input" style="flex:1"><span>${esc(S.cfg.currency)}</span><input class="input" id="bonus-amt" type="number" min="1" max="${S.cfg.bonusMax}" placeholder="Amount"></div></div>
+      <input class="input mt8" id="bonus-why" maxlength="60" placeholder="Reason (optional), e.g. Driver of the week">
+      <button class="btn green block mt8" ${act(async () => {
+        const amt = Number($('#bonus-amt').value); const why = $('#bonus-why').value;
+        if (!(amt > 0)) return toast('Enter an amount.', false);
+        if (await confirmBox('Give bonus', `Pay <b>${esc(e.name)}</b> a <b>${money(amt)}</b> bonus from company funds?`, 'Pay bonus')) run('giveBonus', e.id, amt, why);
+      })}><i class="fa-solid fa-gift"></i>Pay bonus</button>
+      <div class="muted small mt8">Paid from company funds straight to their bank (or their paycheck if they're offline). Max ${money(S.cfg.bonusMax)}.</div>`;
+  }
   if (can('fire')) h += `<button class="btn danger block mt16" ${act(async () => { if (await confirmBox('Fire employee', `Let <b>${esc(e.name)}</b> go?`, 'Fire', true)) { S.sel.emp = null; run('fireEmployee', e.id); } })}><i class="fa-solid fa-user-xmark"></i>Fire</button>`;
   h += `</div></div>`;
   return h;
@@ -477,7 +526,7 @@ function dealer() {
   list.forEach(([model, def]) => {
     h += `<div class="card"><img class="truck-img" src="${truckImg(model)}" onerror="this.style.visibility='hidden'">
       <div class="row between"><div class="bold">${esc(def.label)}</div><span class="chip ${def.class === 'semi' ? 'blue' : 'accent'}">${def.class === 'semi' ? 'Semi' : 'Box truck'}</span></div>
-      <div class="muted small mt8">${def.class === 'semi' ? 'Pulls trailers: freight, fuel, timber, machinery. Drivers need a CDL.' : 'Local freight like parcels and furniture. No CDL needed.'}</div>
+      <div class="muted small mt8">${def.class === 'semi' ? 'Tractor unit: hooks up the customer\'s trailer at the pickup (no trailer to buy). Freight, fuel, timber, machinery. Drivers need a CDL.' : 'Local freight like parcels, furniture and electronics. No CDL needed.'}</div>
       <div class="field mt12" style="margin-bottom:0"><label>Insurance</label><select class="input" id="ins-${model}">${Object.entries(S.cfg.insurance).map(([k, v]) => `<option value="${k}" ${k === 'basic' ? 'selected' : ''}>${esc(v.label)} — ${money(def.price * v.premiumPct)}/payroll</option>`).join('')}</select></div>
       <div class="row between mt12"><div style="font-size:20px;font-weight:800">${money(def.price)}</div>
       <button class="btn primary" ${act(async () => {
@@ -566,7 +615,7 @@ VIEWS.driver = async () => {
   else h += `<div class="list">${list.map((c) => `<div class="item"><div class="ic accent"><i class="fa-solid fa-${c.class === 'semi' ? 'trailer' : 'box'}"></i></div>
       <div class="main"><div class="t">#${c.id} ${esc(c.cargoLabel)}</div>
         <div class="d"><i class="fa-solid fa-location-dot"></i> ${esc(c.pickup ? c.pickup.label : '?')} → <i class="fa-solid fa-flag-checkered"></i> ${esc(c.dropoff.label)} • ${c.distance.toFixed(1)} km</div>
-        <div class="d">${c.class === 'semi' ? 'Semi + trailer' : 'Box truck'} • ${esc(c.truck_label || '')} [${esc(c.truck_plate || '?')}] • contract ${money(c.award_amount)}${c.cut ? ` • your cut ${money(c.cut)}` : ''} • due ${count(c.deadlineIn || 0, 'LATE')}</div></div>
+        <div class="d">${loadTags(c)}${vehLabel(c.class)} • ${esc(c.truck_label || '')} [${esc(c.truck_plate || '?')}] • contract ${money(c.award_amount)}${c.cut ? ` • your cut ${money(c.cut)}` : ''} • due ${count(c.deadlineIn || 0, 'LATE')}</div></div>
       ${c.active || c.status !== 'assigned' ? '<span class="chip accent">In progress</span>' : `<button class="btn primary" ${act(() => post('startRun', { id: c.id }))}><i class="fa-solid fa-play"></i>Start load</button>`}</div>`).join('')}</div>
       <div class="banner blue mt12" style="margin-bottom:0"><i class="fa-solid fa-circle-info"></i><div><b>How it works:</b> go to the company yard and press <b>Start load</b>. Your truck spawns with a GPS route.
         1) drive to the pickup${list.some((c) => c.class === 'semi') ? ' and back under the trailer to hook it' : ' and press E to load'}, 2) deliver to the drop-off and press E, 3) bring the truck back to the yard. The panel on the right shows each step.</div></div>`;
@@ -644,9 +693,10 @@ function renderHud(d) {
   const cur = d.currency || '$';
   const m = (n) => (n == null ? '—' : cur + Math.floor(n).toLocaleString('en-US'));
   const dist = d.distance >= 1000 ? (d.distance / 1000).toFixed(1) + ' km' : Math.round(d.distance) + ' m';
-  el.innerHTML = `<div class="h-top"><span><i class="fa-solid fa-truck-fast"></i> Load #${d.id} • ${esc(d.cargo)}</span><span>Step ${d.stepNo}/3</span></div>
+  const total = d.stepTotal || 3;
+  el.innerHTML = `<div class="h-top"><span><i class="fa-solid fa-truck-fast"></i> Load #${d.id} • ${esc(d.cargo)}${d.express ? ' • <span style="color:var(--yellow)">EXPRESS</span>' : ''}</span><span>Step ${d.stepNo}/${total}</span></div>
     <div class="h-step">${esc(d.step)}</div>
-    <div class="h-steps">${[1, 2, 3].map((i) => `<span class="${i <= d.stepNo ? 'on' : ''}"></span>`).join('')}</div>
+    <div class="h-steps">${Array.from({ length: total }, (_, k) => `<span class="${k + 1 <= d.stepNo ? 'on' : ''}"></span>`).join('')}</div>
     <div class="h-row">Distance <b>${dist}</b></div>
     <div class="h-row">Route <b>${esc(d.from || '')} → ${esc(d.to || '')}</b></div>
     ${d.deadline != null ? `<div class="h-row">Time left <b class="${d.late ? 'late' : ''}">${d.late ? 'LATE' : dur(d.deadline)}</b></div>` : ''}

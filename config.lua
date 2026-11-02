@@ -285,6 +285,24 @@ Config.Cargo = {
     machinery = { label = 'Heavy Machinery',      class = 'semi', certs = { 'cdl', 'oversize' },      payMult = 1.6, minRep = 30, trailers = { 'trflat' } },
     fuel      = { label = 'Fuel',                 class = 'semi', certs = { 'cdl', 'tanker', 'hazmat' }, payMult = 1.9, minRep = 40, trailers = { 'tanker', 'tanker2' } },
     chemicals = { label = 'Industrial Chemicals', class = 'semi', certs = { 'cdl', 'hazmat' },        payMult = 2.2, minRep = 60, trailers = { 'tanker' } },
+    -- premium tier: high reputation + certifications, big money
+    electronics = { label = 'High-Value Electronics', class = 'box',  certs = {},                      payMult = 1.7, minRep = 35 },
+    pharma      = { label = 'Pharmaceuticals',        class = 'box',  certs = { 'cdl', 'hazmat' },    payMult = 2.1, minRep = 45 },
+    exotics     = { label = 'Exotic Car Transport',   class = 'semi', certs = { 'cdl' },              payMult = 2.5, minRep = 55, trailers = { 'tr4' } },
+    turbine     = { label = 'Wind Turbine Blades',    class = 'semi', certs = { 'cdl', 'oversize' },  payMult = 3.0, minRep = 70, trailers = { 'trflat' } },
+    explosives  = { label = 'Mining Explosives',      class = 'semi', certs = { 'cdl', 'hazmat' },    payMult = 3.4, minRep = 80, trailers = { 'trailers2' } },
+}
+
+-- Extra collection points used by multi-stop jobs (any spot a truck can reach)
+Config.CollectionPoints = {
+    { label = 'LSIA Cargo',                coords = vec3(-1025.0, -2740.0, 13.8) },
+    { label = 'La Mesa Warehouses',        coords = vec3(870.0, -1580.0, 30.4) },
+    { label = 'Cypress Flats Depot',       coords = vec3(860.0, -2350.0, 30.3) },
+    { label = 'Rancho Industrial',         coords = vec3(500.0, -1960.0, 24.8) },
+    { label = 'Sandy Shores Hardware',     coords = vec3(1700.0, 3770.0, 34.4) },
+    { label = 'Grapeseed Feed Store',      coords = vec3(1700.0, 4930.0, 42.1) },
+    { label = 'Paleto Bay Warehouse',      coords = vec3(140.0, 6630.0, 31.7) },
+    { label = 'Harmony Depot',             coords = vec3(1190.0, 2650.0, 37.8) },
 }
 
 -- Where loads are picked up (port lots). Trailers spawn here.
@@ -327,6 +345,14 @@ Config.Board = {
     latePenalty = 0.35,           -- payout lost when late
     failPenalty = 0.5,            -- % of contract charged when a load is lost/abandoned
     repOnTime = 2, repLate = -1, repFail = -4,
+    -- multi-stop collection runs
+    multiStopChance = 0.3,        -- share of new contracts that have extra collection stops
+    multiStopMax = 3,             -- extra stops (1..this) between pickup and drop-off
+    multiStopBonus = 0.25,        -- +25% pay per extra stop (on top of the longer distance)
+    -- express contracts: tight deadline, better pay
+    expressChance = 0.15,
+    expressPayMult = 1.5,
+    expressDeadlineMult = 0.6,
 }
 
 Config.Runs = {
@@ -356,4 +382,19 @@ Config.Payroll = {
 Config.Economy = {
     startingBalance = 0,
     propertyRefund = 0.6,
+}
+
+-- Bonuses owners/managers can give player employees (paid from company funds)
+Config.Bonus = {
+    max = 50000,                  -- largest single bonus
+}
+
+-- Business loans (owner only). Repaid automatically each payroll.
+Config.Loans = {
+    minReputation = 20,
+    baseLimit = 75000,            -- borrowing limit = base + reputation * perRep
+    perRep = 3000,
+    interest = 0.15,              -- flat: you repay amount * (1 + interest)
+    installments = 10,            -- number of payroll cycles to repay over
+    maxActive = 1,
 }

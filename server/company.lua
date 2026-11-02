@@ -82,6 +82,7 @@ lib.callback.register('truckco:server:sellCompany', function(src)
     local company, role = TC.authorize(src)
     if not company or role ~= 'owner' then return TC.result(false, 'Only the owner can sell the company.') end
     if company.balance < 0 then return TC.result(false, 'Clear the company debt before selling.') end
+    if TC.activeLoans and #TC.activeLoans(company.id) > 0 then return TC.result(false, 'Repay your business loan before selling.') end
     local busy = MySQL.scalar.await(
         "SELECT COUNT(*) FROM truckco_contracts WHERE company_id = ? AND status IN ('assigned','in_progress','delivered')",
         { company.id })

@@ -24,9 +24,14 @@ MySQL.ready(function() CreateThread(function()
             print(('^3[truckco] added column %s.%s^0'):format(tbl, col))
         end
     end
-    for _, col in ipairs({ { 'layout', 'LONGTEXT NULL' }, { 'signs', 'LONGTEXT NULL' } }) do
-        local ok, err = pcall(ensureColumn, 'truckco_companies', col[1], col[2])
-        if not ok then print('^1[truckco] could not add column ' .. col[1] .. ': ' .. tostring(err) .. '^0') end
+    for _, col in ipairs({
+        { 'truckco_companies', 'layout', 'LONGTEXT NULL' },
+        { 'truckco_companies', 'signs', 'LONGTEXT NULL' },
+        { 'truckco_contracts', 'stops', 'LONGTEXT NULL' },
+        { 'truckco_contracts', 'express', 'TINYINT(1) NOT NULL DEFAULT 0' },
+    }) do
+        local ok, err = pcall(ensureColumn, col[1], col[2], col[3])
+        if not ok then print('^1[truckco] could not add column ' .. col[1] .. '.' .. col[2] .. ': ' .. tostring(err) .. '^0') end
     end
 
     -- contracts that were mid-flight with a player when the server stopped go back to "awarded"

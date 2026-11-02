@@ -22,6 +22,7 @@ local ALLOWED = {
     getMyAssignments = true, toggleDuty = true, collectPay = true,
     buyProperty = true,
     setPlace = true, resetLayout = true,
+    giveBonus = true, getLoans = true, takeLoan = true, repayLoan = true,
 }
 
 -- static data the UI needs (sent once per open)
@@ -49,6 +50,7 @@ local function uiConfig()
         driverCommission = Config.Runs.driverCommission,
         perms = TCShared.Perms,
         signs = { max = Config.Signs.max, price = Config.Signs.price },
+        bonusMax = Config.Bonus and Config.Bonus.max or 50000,
     }
 end
 

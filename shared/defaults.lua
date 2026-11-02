@@ -8,6 +8,19 @@
 ]]
 local D = {}
 
+D.Bonus = { max = 50000 }
+D.Loans = { minReputation = 20, baseLimit = 75000, perRep = 3000, interest = 0.15, installments = 10, maxActive = 1 }
+D.CollectionPoints = {
+    { label = 'LSIA Cargo', coords = vec3(-1025.0, -2740.0, 13.8) },
+    { label = 'La Mesa Warehouses', coords = vec3(870.0, -1580.0, 30.4) },
+    { label = 'Cypress Flats Depot', coords = vec3(860.0, -2350.0, 30.3) },
+    { label = 'Rancho Industrial', coords = vec3(500.0, -1960.0, 24.8) },
+    { label = 'Sandy Shores Hardware', coords = vec3(1700.0, 3770.0, 34.4) },
+    { label = 'Grapeseed Feed Store', coords = vec3(1700.0, 4930.0, 42.1) },
+    { label = 'Paleto Bay Warehouse', coords = vec3(140.0, 6630.0, 31.7) },
+    { label = 'Harmony Depot', coords = vec3(1190.0, 2650.0, 37.8) },
+}
+
 D.Garage = {
     roles = { manager = true, dispatcher = true, driver = true },
 }
@@ -200,6 +213,8 @@ D.Board = {
     latePenalty = 0.35,           -- payout lost when late
     failPenalty = 0.5,            -- % of contract charged when a load is lost/abandoned
     repOnTime = 2, repLate = -1, repFail = -4,
+    multiStopChance = 0.3, multiStopMax = 3, multiStopBonus = 0.25,
+    expressChance = 0.15, expressPayMult = 1.5, expressDeadlineMult = 0.6,
 }
 
 D.Runs = {

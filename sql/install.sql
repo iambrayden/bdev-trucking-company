@@ -73,6 +73,8 @@ CREATE TABLE IF NOT EXISTS `truckco_contracts` (
     `truck_id` INT NULL,
     `assigned_by` VARCHAR(16) NULL,
     `driver_kind` VARCHAR(8) NULL,
+    `stops` LONGTEXT NULL,
+    `express` TINYINT(1) NOT NULL DEFAULT 0,
     `awarded_at` INT NULL,
     `deadline` INT NULL,
     `started_at` INT NULL,
@@ -110,4 +112,16 @@ CREATE TABLE IF NOT EXISTS `truckco_settings` (
     `k` VARCHAR(96) NOT NULL,
     `v` LONGTEXT NOT NULL,
     PRIMARY KEY (`k`)
+);
+
+CREATE TABLE IF NOT EXISTS `truckco_loans` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `company_id` INT NOT NULL,
+    `principal` INT NOT NULL,
+    `balance` INT NOT NULL,
+    `installment` INT NOT NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_company` (`company_id`),
+    CONSTRAINT `fk_loan_company` FOREIGN KEY (`company_id`) REFERENCES `truckco_companies` (`id`) ON DELETE CASCADE
 );

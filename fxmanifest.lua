@@ -39,6 +39,7 @@ server_scripts {
     'server/runs.lua',
     'server/garage.lua',
     'server/dispatch.lua',
+    'server/finance.lua',
     'server/payroll.lua',
     'server/ticks.lua',
 }

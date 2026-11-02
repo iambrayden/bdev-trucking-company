@@ -6,6 +6,8 @@ local function decodeContract(c)
     if not c then return nil end
     c.pickup = json.decode(c.pickup)
     c.dropoff = json.decode(c.dropoff)
+    c.stops = c.stops and json.decode(c.stops) or {}
+    c.express = c.express == 1 or c.express == true
     local cargo = Config.Cargo[c.cargo] or {}
     c.cargoLabel = cargo.label or c.cargo
     c.class = cargo.class or 'semi'
@@ -22,27 +24,58 @@ end
 --------------------------------------------------------------------------------
 -- Generation
 --------------------------------------------------------------------------------
+local function pt(label, c) return { label = label, x = c.x, y = c.y, z = c.z, w = c.w } end
+
 local function generateContract()
+    local B = Config.Board
     local cargoKey = cargoKeys[math.random(#cargoKeys)]
     local cargo = Config.Cargo[cargoKey]
     local pickup = Config.Pickups[math.random(#Config.Pickups)]
     local dest = Config.Destinations[math.random(#Config.Destinations)]
-    local km = TC.distance(pickup.coords, dest.coords) * Config.Board.roadFactor / 1000.0
-    local maxPay = math.max(Config.Board.minPay, math.floor(km * Config.Board.ratePerKm * cargo.payMult))
+
+    -- multi-stop: extra collection stops between pickup and drop-off
+    local stops = {}
+    local pool = Config.CollectionPoints or {}
+    if #pool > 0 and math.random() < (B.multiStopChance or 0) then
+        local n = math.random(1, math.min(B.multiStopMax or 3, #pool))
+        local used = {}
+        while #stops < n do
+            local i = math.random(#pool)
+            if not used[i] then
+                used[i] = true
+                stops[#stops + 1] = pt(pool[i].label, pool[i].coords)
+            end
+        end
+    end
+
+    -- route length: pickup -> stops... -> drop-off
+    local meters, prev = 0.0, pickup.coords
+    for _, st in ipairs(stops) do
+        meters = meters + TC.distance(prev, st)
+        prev = st
+    end
+    meters = meters + TC.distance(prev, dest.coords)
+    local km = meters * B.roadFactor / 1000.0
+
+    local express = math.random() < (B.expressChance or 0)
+    local mult = cargo.payMult * (1 + (B.multiStopBonus or 0) * #stops) * (express and (B.expressPayMult or 1) or 1)
+    local maxPay = math.max(B.minPay, math.floor(km * B.ratePerKm * mult))
     -- small random swing so identical routes aren't identical prices
     maxPay = math.floor(maxPay * (0.9 + math.random() * 0.25) / 50) * 50
-    local lo, hi = Config.Board.marketBid[1], Config.Board.marketBid[2]
+    local lo, hi = B.marketBid[1], B.marketBid[2]
     local market = math.floor(maxPay * (lo + math.random() * (hi - lo)))
     local trailer = cargo.trailers and cargo.trailers[math.random(#cargo.trailers)] or nil
     local now = TC.now()
     MySQL.insert.await(
-        'INSERT INTO truckco_contracts (cargo, trailer, pickup, dropoff, distance, max_pay, market_bid, bid_closes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO truckco_contracts (cargo, trailer, pickup, dropoff, stops, express, distance, max_pay, market_bid, bid_closes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         {
             cargoKey, trailer,
-            json.encode({ label = pickup.label, x = pickup.coords.x, y = pickup.coords.y, z = pickup.coords.z, w = pickup.coords.w }),
-            json.encode({ label = dest.label, x = dest.coords.x, y = dest.coords.y, z = dest.coords.z }),
+            json.encode(pt(pickup.label, pickup.coords)),
+            json.encode(pt(dest.label, dest.coords)),
+            #stops > 0 and json.encode(stops) or nil,
+            express and 1 or 0,
             math.floor(km * 10) / 10, maxPay, market,
-            now + math.random(Config.Board.bidWindow[1], Config.Board.bidWindow[2]), now,
+            now + math.random(B.bidWindow[1], B.bidWindow[2]), now,
         })
 end
 
@@ -142,6 +175,8 @@ function TC.tickResolveBids()
         if best then
             local cargo = Config.Cargo[c.cargo]
             local deadlineMin = c.distance / Config.Board.deadlineKmPerMin + Config.Board.deadlineBuffer
+            if c.stops then deadlineMin = deadlineMin + 3 * #(json.decode(c.stops) or {}) end -- time to load at each stop
+            if c.express == 1 then deadlineMin = deadlineMin * (Config.Board.expressDeadlineMult or 1) end
             MySQL.update.await(
                 "UPDATE truckco_contracts SET status = 'awarded', company_id = ?, award_amount = ?, awarded_at = ?, deadline = ? WHERE id = ?",
                 { best.company_id, best.amount, now, now + math.floor(deadlineMin * 60) + Config.Board.acceptWindow, c.id })

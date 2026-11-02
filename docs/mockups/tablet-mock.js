@@ -46,6 +46,7 @@
     hireFee: 1500,
     driverCommission: 0.15,
     signs: { max: 3, price: 2500 },
+    bonusMax: 50000,
     perms: {
       manager: { view: true, hire: true, fire: true, train: true, fleet: true, bid: true, assign: true, finance: true, deposit: true, upgrades: true, settings: true },
       dispatcher: { view: true, bid: true, assign: true },
@@ -92,16 +93,16 @@
 
   const loc = (label) => ({ label });
   const board = [
-    { id: 151, cargo: 'fuel', cargoLabel: 'Fuel', class: 'semi', certs: ['cdl', 'tanker', 'hazmat'], minRep: 40, pickup: loc('Port of LS - Lot A'), dropoff: loc('Paleto Globe Oil'), distance: 14.2, max_pay: 9850, my_bid: null, bid_count: 3, closesIn: 108, eligible: true },
+    { id: 151, cargo: 'fuel', cargoLabel: 'Fuel', class: 'semi', certs: ['cdl', 'tanker', 'hazmat'], minRep: 40, express: true, pickup: loc('Port of LS - Lot A'), dropoff: loc('Paleto Globe Oil'), distance: 14.2, max_pay: 14750, my_bid: null, bid_count: 3, closesIn: 108, eligible: true },
     { id: 149, cargo: 'logs', cargoLabel: 'Timber', class: 'semi', certs: ['cdl'], minRep: 15, pickup: loc('Port of LS - Lot B'), dropoff: loc('Paleto Bay Sawmill'), distance: 12.7, max_pay: 5950, my_bid: 5100, bid_count: 2, closesIn: 150, eligible: true },
-    { id: 153, cargo: 'parcels', cargoLabel: 'Parcels', class: 'box', certs: [], minRep: 0, pickup: loc('Elysian Container Yard'), dropoff: loc('Strawberry Mega Mall'), distance: 2.1, max_pay: 2500, my_bid: null, bid_count: 0, closesIn: 182, eligible: true },
+    { id: 153, cargo: 'electronics', cargoLabel: 'High-Value Electronics', class: 'box', certs: [], minRep: 35, stops: [loc('La Mesa Warehouses'), loc('Rancho Industrial')], pickup: loc('Elysian Container Yard'), dropoff: loc('Strawberry Mega Mall'), distance: 9.4, max_pay: 7900, my_bid: null, bid_count: 0, closesIn: 182, eligible: true },
     { id: 154, cargo: 'machinery', cargoLabel: 'Heavy Machinery', class: 'semi', certs: ['cdl', 'oversize'], minRep: 30, pickup: loc('Buccaneer Way Docks'), dropoff: loc('Davis Quartz Quarry'), distance: 9.6, max_pay: 8400, my_bid: null, bid_count: 1, closesIn: 281, eligible: true },
     { id: 155, cargo: 'chemicals', cargoLabel: 'Industrial Chemicals', class: 'semi', certs: ['cdl', 'hazmat'], minRep: 60, pickup: loc('Port of LS - Lot A'), dropoff: loc('Humane Labs'), distance: 11.4, max_pay: 14300, my_bid: null, bid_count: 4, closesIn: 310, eligible: false },
     { id: 156, cargo: 'produce', cargoLabel: 'Refrigerated Produce', class: 'semi', certs: ['cdl'], minRep: 10, pickup: loc('Elysian Container Yard'), dropoff: loc('Grapeseed Farms'), distance: 10.9, max_pay: 6100, my_bid: null, bid_count: 1, closesIn: 415, eligible: true },
   ];
 
   const loads = [
-    { id: 146, cargoLabel: 'General Freight', class: 'semi', certs: ['cdl'], dropoff: loc('Sandy Shores Airfield'), distance: 8.8, status: 'awarded', award_amount: 6300, acceptIn: 492, deadlineIn: 1680 },
+    { id: 146, cargoLabel: 'General Freight', class: 'semi', certs: ['cdl'], stops: [loc('Harmony Depot')], dropoff: loc('Sandy Shores Airfield'), distance: 8.8, status: 'awarded', award_amount: 6300, acceptIn: 492, deadlineIn: 1680 },
     { id: 141, cargoLabel: 'Timber', class: 'semi', certs: ['cdl'], dropoff: loc('Paleto Bay Sawmill'), distance: 12.7, status: 'assigned', award_amount: 5400, driver_name: 'Jordan Hayes', truck_plate: 'TC930041', deadlineIn: 1300 },
     { id: 139, cargoLabel: 'Vehicle Transport', class: 'semi', certs: ['cdl'], dropoff: loc('Harmony Garage'), distance: 9.9, status: 'in_progress', award_amount: 7450, driver_name: 'Dale Kowalski', truck_plate: 'TC482913', etaIn: 291, deadlineIn: 900 },
     { id: 137, cargoLabel: 'Furniture', class: 'box', certs: [], dropoff: loc('Strawberry Mega Mall'), distance: 2.4, status: 'in_progress', award_amount: 2300, driver_name: 'Earl Whitfield', truck_plate: 'TC245590', etaIn: 69, deadlineIn: 600 },
@@ -125,6 +126,7 @@
     getMyContracts: () => ({ ok: true, data: loads }),
     getAssignOptions: () => ({ ok: true, data: { drivers: [employees[3], employees[4]], trucks: [fleet[1]] } }),
     getLedger: () => ({ ok: true, data: ledger }),
+    getLoans: () => ({ ok: true, data: { loans: [{ id: 3, principal: 60000, balance: 41400, installment: 6900 }], limit: 231000, available: 189600, interest: 0.15, installments: 10, minReputation: 20, maxActive: 1, reputation: 52 } }),
     getMyAssignments: () => ({ ok: true, data: { pending: 2400, onDuty: true, list: [{ id: 141, cargoLabel: 'Timber', class: 'semi', pickup: loc('Port of LS - Lot B'), dropoff: loc('Paleto Bay Sawmill'), distance: 12.7, truck_plate: 'TC930041', truck_label: 'JoBuilt Hauler', award_amount: 5400, cut: 810, deadlineIn: 1300, status: 'assigned' }] } }),
   };
 
