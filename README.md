@@ -84,6 +84,7 @@ Buy a depot down by the docks, build out the empty office shell, hire staff (NPC
 | `/truckboard` | staff | Tablet → Bid board |
 | `/truckload` | driver | Re-show the current delivery step and reset the GPS |
 | `/truckco_cancel` | driver | Abandon the current load (recovery fee) |
+| `/truckco_signtest` | anyone | Draw a test sign in front of you for 30s (render check) |
 | `/truckco_pos` | admin | Copy your current `vec4` for config |
 | `/truckco_furnish` | admin | In-game defaults saved to the database. Outside: move a depot entrance, set truck pickup/return. Inside: default furniture, exit, arrival point, time clock |
 | `/truckco_board [n]` | admin | Force-generate contracts |
@@ -153,12 +154,15 @@ Stand outside your depot: tablet → **Office** → **Place signs**.
 
 | Key | Action |
 |---|---|
-| **E** | Pick up the sign you're looking at, start a new one, or place the held sign |
+| Aim | A preview sign follows your aim (red label = too far from the depot) |
+| **E** or **left-click** | Place a new sign at the preview, or pick up the sign you're aiming at / put it down |
 | **Scroll** | Rotate (Shift = fine) |
 | **Q** | Change style |
 | **X** | Delete the held sign |
 | **Backspace** | Put it back / leave without saving |
 | **Enter** | Save (new signs are charged then) |
+
+Nothing showing? Run `/truckco_signtest` to draw a test sign in front of you; it also reports whether your client supports textured signs (otherwise a plain panel with the name in 3D text is used).
 
 ### Imperial CAD
 
