@@ -113,6 +113,35 @@ end
 --------------------------------------------------------------------------------
 -- Zones (exit door + fallback spots for missing interaction props)
 --------------------------------------------------------------------------------
+--- Visible exit: a door marker and an [E] prompt, so you can always find the way out.
+local function addExitPoint()
+    local pos = TCShared.offset(office.interior.origin, office.interior.exit)
+    local markerZ = office.floor and (office.floor + 0.05) or (pos.z - 0.95)
+    local shown = false
+    office.exitPoint = lib.points.new({
+        coords = pos,
+        distance = 8.0,
+        nearby = function(self)
+            DrawMarker(1, pos.x, pos.y, markerZ, 0, 0, 0, 0, 0, 0, 1.0, 1.0, 0.25, 253, 126, 20, 120, false, false, 2, false, nil, nil, false)
+            DrawMarker(21, pos.x, pos.y, markerZ + 1.0, 0, 0, 0, 0, 180.0, 0, 0.35, 0.35, 0.35, 253, 126, 20, 200, true, true, 2, false, nil, nil, false)
+            if self.currentDistance < 1.5 then
+                if not shown then lib.showTextUI('[E] Leave office', { icon = 'door-open' }) shown = true end
+                if IsControlJustReleased(0, 38) then
+                    lib.hideTextUI()
+                    shown = false
+                    TCC.exitOffice()
+                end
+            elseif shown then
+                lib.hideTextUI()
+                shown = false
+            end
+        end,
+        onExit = function()
+            if shown then lib.hideTextUI() shown = false end
+        end,
+    })
+end
+
 local function hasInteract(kind)
     for _, item in ipairs(office.items) do
         if item.def.interact == kind then return true end
@@ -149,35 +178,6 @@ local function removeZones()
     office.zones = {}
     if office.exitPoint then office.exitPoint:remove() office.exitPoint = nil end
     lib.hideTextUI()
-end
-
---- Visible exit: a door marker and an [E] prompt, so you can always find the way out.
-local function addExitPoint()
-    local pos = TCShared.offset(office.interior.origin, office.interior.exit)
-    local markerZ = office.floor and (office.floor + 0.05) or (pos.z - 0.95)
-    local shown = false
-    office.exitPoint = lib.points.new({
-        coords = pos,
-        distance = 8.0,
-        nearby = function(self)
-            DrawMarker(1, pos.x, pos.y, markerZ, 0, 0, 0, 0, 0, 0, 1.0, 1.0, 0.25, 253, 126, 20, 120, false, false, 2, false, nil, nil, false)
-            DrawMarker(21, pos.x, pos.y, markerZ + 1.0, 0, 0, 0, 0, 180.0, 0, 0.35, 0.35, 0.35, 253, 126, 20, 200, true, true, 2, false, nil, nil, false)
-            if self.currentDistance < 1.5 then
-                if not shown then lib.showTextUI('[E] Leave office', { icon = 'door-open' }) shown = true end
-                if IsControlJustReleased(0, 38) then
-                    lib.hideTextUI()
-                    shown = false
-                    TCC.exitOffice()
-                end
-            elseif shown then
-                lib.hideTextUI()
-                shown = false
-            end
-        end,
-        onExit = function()
-            if shown then lib.hideTextUI() shown = false end
-        end,
-    })
 end
 
 --------------------------------------------------------------------------------
