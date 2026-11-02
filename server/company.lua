@@ -1,0 +1,244 @@
+--------------------------------------------------------------------------------
+-- Properties
+--------------------------------------------------------------------------------
+local function propertyState()
+    local rows = MySQL.query.await('SELECT id, name, property FROM truckco_companies') or {}
+    local owned = {}
+    for _, r in ipairs(rows) do owned[r.property] = { companyId = r.id, name = r.name } end
+    local out = {}
+    for id, prop in pairs(Config.Properties) do
+        out[id] = {
+            owned = owned[id] ~= nil,
+            companyId = owned[id] and owned[id].companyId,
+            name = owned[id] and owned[id].name or prop.label,
+        }
+    end
+    return out
+end
+
+function TC.broadcastProperties()
+    TriggerClientEvent('truckco:client:properties', -1, propertyState())
+end
+
+lib.callback.register('truckco:server:getProperties', function()
+    while not TC.ready do Wait(100) end
+    return propertyState()
+end)
+
+local function sanitizeName(name)
+    if type(name) ~= 'string' then return nil end
+    name = name:gsub('[^%w%s%-%&%.\']', ''):gsub('%s+', ' '):match('^%s*(.-)%s*$')
+    if #name < 3 or #name > 40 then return nil end
+    return name
+end
+
+lib.callback.register('truckco:server:buyProperty', function(src, propertyId, name)
+    local prop = Config.Properties[propertyId]
+    if not prop then return TC.result(false, 'Unknown property.') end
+    name = sanitizeName(name)
+    if not name then return TC.result(false, 'Company name must be 3-40 letters/numbers.') end
+
+    local player = TC.getPlayer(src)
+    if not player then return TC.result(false, 'Player not loaded.') end
+    if TC.distance(GetEntityCoords(GetPlayerPed(src)), prop.entrance) > 15.0 then
+        return TC.result(false, 'You need to be at the property.')
+    end
+    if TC.getMembership(src) then
+        return TC.result(false, 'You already own or work for a trucking company.')
+    end
+    if MySQL.scalar.await('SELECT id FROM truckco_companies WHERE property = ?', { propertyId }) then
+        return TC.result(false, 'This property was just bought by someone else.')
+    end
+    if player.PlayerData.money.bank < prop.price then
+        return TC.result(false, ('You need %s in the bank.'):format(TCShared.money(prop.price)))
+    end
+    if not player.Functions.RemoveMoney('bank', prop.price, 'truckco-buy-property') then
+        return TC.result(false, 'Payment failed.')
+    end
+
+    local ok, id = pcall(MySQL.insert.await,
+        'INSERT INTO truckco_companies (name, owner, property, balance, upgrades, settings, last_payroll) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        { name, player.PlayerData.citizenid, propertyId, Config.Economy.startingBalance, '{}', '{}', TC.now() })
+    if not ok or not id then
+        player.Functions.AddMoney('bank', prop.price, 'truckco-buy-property-refund')
+        return TC.result(false, 'Could not register the company. You were refunded.')
+    end
+    TC.ledger(id, 0, ('Company founded at %s'):format(prop.label))
+    TC.broadcastProperties()
+    return TC.result(true, ('Welcome to the industry, %s!'):format(name), { companyId = id })
+end)
+
+lib.callback.register('truckco:server:sellCompany', function(src)
+    local company, role = TC.authorize(src)
+    if not company or role ~= 'owner' then return TC.result(false, 'Only the owner can sell the company.') end
+    if company.balance < 0 then return TC.result(false, 'Clear the company debt before selling.') end
+    local busy = MySQL.scalar.await(
+        "SELECT COUNT(*) FROM truckco_contracts WHERE company_id = ? AND status IN ('assigned','in_progress','delivered')",
+        { company.id })
+    if busy and busy > 0 then return TC.result(false, 'Wait for all loads in progress to finish first.') end
+
+    local prop = Config.Properties[company.property]
+    local trucks = MySQL.query.await('SELECT price, health FROM truckco_trucks WHERE company_id = ?', { company.id }) or {}
+    local truckValue = 0
+    for _, t in ipairs(trucks) do truckValue = truckValue + math.floor(t.price * Config.Fleet.sellRefund * (t.health / 100)) end
+    local payout = math.floor((prop and prop.price or 0) * Config.Economy.propertyRefund) + company.balance + truckValue
+
+    -- release any open/awarded contracts back into the void
+    MySQL.update.await("UPDATE truckco_contracts SET status = 'failed', finished_at = ? WHERE company_id = ? AND status = 'awarded'",
+        { TC.now(), company.id })
+    MySQL.query.await('DELETE FROM truckco_companies WHERE id = ?', { company.id })
+    TC.candidates[company.id] = nil
+
+    local player = TC.getPlayer(src)
+    player.Functions.AddMoney('bank', payout, 'truckco-sell-company')
+    TC.broadcastProperties()
+    return TC.result(true, ('Company sold. %s deposited to your bank.'):format(TCShared.money(payout)))
+end)
+
+lib.callback.register('truckco:server:renameCompany', function(src, name)
+    local company, role = TC.authorize(src)
+    if not company or role ~= 'owner' then return TC.result(false, 'Only the owner can rename the company.') end
+    name = sanitizeName(name)
+    if not name then return TC.result(false, 'Company name must be 3-40 letters/numbers.') end
+    MySQL.update.await('UPDATE truckco_companies SET name = ? WHERE id = ?', { name, company.id })
+    TC.broadcastProperties()
+    return TC.result(true, 'Company renamed.')
+end)
+
+--------------------------------------------------------------------------------
+-- Office access (routing bucket per company)
+--------------------------------------------------------------------------------
+lib.callback.register('truckco:server:enterOffice', function(src, propertyId)
+    local prop = Config.Properties[propertyId]
+    if not prop then return TC.result(false, 'Unknown property.') end
+    local companyId = MySQL.scalar.await('SELECT id FROM truckco_companies WHERE property = ?', { propertyId })
+    if not companyId then return TC.result(false, 'This property is for sale.') end
+    local company, role = TC.getMembership(src)
+    if not company or company.id ~= companyId then return TC.result(false, 'The door is locked. Staff only.') end
+    if TC.distance(GetEntityCoords(GetPlayerPed(src)), prop.entrance) > 10.0 then
+        return TC.result(false, 'Too far from the door.')
+    end
+    TC.inside[src] = propertyId
+    SetPlayerRoutingBucket(src, Config.RoutingBucketBase + company.id)
+    return TC.result(true, nil, {
+        interior = prop.interior,
+        upgrades = company.upgrades,
+        role = role,
+        name = company.name,
+    })
+end)
+
+lib.callback.register('truckco:server:exitOffice', function(src)
+    local propertyId = TC.inside[src]
+    TC.inside[src] = nil
+    SetPlayerRoutingBucket(src, 0)
+    return TC.result(true, nil, { propertyId = propertyId })
+end)
+
+AddEventHandler('playerDropped', function()
+    local src = source
+    TC.inside[src] = nil
+    TC.invites[src] = nil
+end)
+
+--------------------------------------------------------------------------------
+-- Dashboard / finances
+--------------------------------------------------------------------------------
+lib.callback.register('truckco:server:getDashboard', function(src)
+    local company, role, emp = TC.authorize(src, 'view')
+    if not company then return TC.result(false, role) end
+    local counts = MySQL.single.await([[
+        SELECT
+          (SELECT COUNT(*) FROM truckco_employees WHERE company_id = ?) AS employees,
+          (SELECT COUNT(*) FROM truckco_employees WHERE company_id = ? AND role = 'driver') AS drivers,
+          (SELECT COUNT(*) FROM truckco_employees WHERE company_id = ? AND role = 'dispatcher') AS dispatchers,
+          (SELECT COUNT(*) FROM truckco_trucks WHERE company_id = ?) AS trucks,
+          (SELECT COUNT(*) FROM truckco_contracts WHERE company_id = ? AND status IN ('awarded','assigned','in_progress')) AS active,
+          (SELECT COUNT(*) FROM truckco_contracts WHERE company_id = ? AND status = 'completed') AS completed,
+          (SELECT COUNT(*) FROM truckco_bids b JOIN truckco_contracts c ON c.id = b.contract_id WHERE b.company_id = ? AND c.status = 'open') AS bids
+    ]], { company.id, company.id, company.id, company.id, company.id, company.id, company.id })
+
+    local nextPayroll = company.last_payroll + Config.Payroll.intervalMinutes * 60 - TC.now()
+    return TC.result(true, nil, {
+        id = company.id,
+        name = company.name,
+        property = Config.Properties[company.property] and Config.Properties[company.property].label or company.property,
+        balance = company.balance,
+        reputation = company.reputation,
+        role = role,
+        upgrades = company.upgrades,
+        settings = company.settings,
+        effects = TC.effects(company),
+        counts = counts,
+        suspended = TC.isSuspended(company),
+        nextPayroll = math.max(0, nextPayroll),
+        onRoster = emp ~= nil,
+        onDuty = TC.onDuty[TC.cid(src)] ~= nil,
+    })
+end)
+
+lib.callback.register('truckco:server:deposit', function(src, amount)
+    local company, err = TC.authorize(src, 'deposit')
+    if not company then return TC.result(false, err) end
+    amount = math.floor(tonumber(amount) or 0)
+    if amount <= 0 then return TC.result(false, 'Invalid amount.') end
+    local player = TC.getPlayer(src)
+    if player.PlayerData.money.bank < amount then return TC.result(false, 'Not enough money in your bank.') end
+    if not player.Functions.RemoveMoney('bank', amount, 'truckco-deposit') then return TC.result(false, 'Payment failed.') end
+    TC.addFunds(company.id, amount, ('Deposit by %s'):format(TC.charName(player)))
+    return TC.result(true, ('Deposited %s.'):format(TCShared.money(amount)))
+end)
+
+lib.callback.register('truckco:server:withdraw', function(src, amount)
+    local company, role = TC.authorize(src)
+    if not company or role ~= 'owner' then return TC.result(false, 'Only the owner can withdraw.') end
+    amount = math.floor(tonumber(amount) or 0)
+    if amount <= 0 then return TC.result(false, 'Invalid amount.') end
+    if not TC.spend(company.id, amount, 'Owner withdrawal') then return TC.result(false, 'Insufficient company funds.') end
+    TC.getPlayer(src).Functions.AddMoney('bank', amount, 'truckco-withdraw')
+    return TC.result(true, ('Withdrew %s.'):format(TCShared.money(amount)))
+end)
+
+lib.callback.register('truckco:server:getLedger', function(src)
+    local company, err = TC.authorize(src, 'finance')
+    if not company then return TC.result(false, err) end
+    local rows = MySQL.query.await(
+        "SELECT amount, reason, DATE_FORMAT(created_at, '%d %b %H:%i') AS ts FROM truckco_ledger WHERE company_id = ? ORDER BY id DESC LIMIT 40",
+        { company.id }) or {}
+    return TC.result(true, nil, rows)
+end)
+
+lib.callback.register('truckco:server:buyUpgrade', function(src, key)
+    local company, err = TC.authorize(src, 'upgrades')
+    if not company then return TC.result(false, err) end
+    local up = Config.Upgrades[key]
+    if not up then return TC.result(false, 'Unknown upgrade.') end
+    local lvl = company.upgrades[key] or 0
+    local nextLvl = up.levels[lvl + 1]
+    if not nextLvl then return TC.result(false, 'Already fully upgraded.') end
+    if not TC.spend(company.id, nextLvl.price, ('Office upgrade: %s (Lv %d)'):format(up.label, lvl + 1)) then
+        return TC.result(false, ('Company needs %s.'):format(TCShared.money(nextLvl.price)))
+    end
+    company.upgrades[key] = lvl + 1
+    MySQL.update.await('UPDATE truckco_companies SET upgrades = ? WHERE id = ?', { json.encode(company.upgrades), company.id })
+    -- refresh furniture for everyone currently inside
+    for s, propId in pairs(TC.inside) do
+        if propId == company.property then
+            TriggerClientEvent('truckco:client:refreshFurniture', s, company.upgrades)
+        end
+    end
+    return TC.result(true, ('%s upgraded to level %d.'):format(up.label, lvl + 1))
+end)
+
+lib.callback.register('truckco:server:saveSettings', function(src, settings)
+    local company, err = TC.authorize(src, 'settings')
+    if not company then return TC.result(false, err) end
+    if type(settings) ~= 'table' then return TC.result(false, 'Invalid settings.') end
+    local s = {
+        autoBid = settings.autoBid == true,
+        autoAssign = settings.autoAssign == true,
+        usePlayerDrivers = settings.usePlayerDrivers == true,
+    }
+    MySQL.update.await('UPDATE truckco_companies SET settings = ? WHERE id = ?', { json.encode(s), company.id })
+    return TC.result(true, 'Dispatch settings saved.')
+end)
