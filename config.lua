@@ -334,6 +334,7 @@ Config.Runs = {
     driverCommission = 0.15,      -- player driver's cut of the payout (paid on top of wage, from company)
     recoveryFee = 2500,           -- charged when a truck is abandoned / player disconnects
     returnGraceMinutes = 20,
+    setWaypoint = false,          -- also place a normal map waypoint (the GPS route is drawn either way)
 }
 
 --------------------------------------------------------------------------------

@@ -2,14 +2,43 @@ local run = nil -- active player run state
 local blip = nil
 local textShown = nil
 
+local routeTarget, routeColor = nil, nil
+
+--- GPS route on the minimap + map. A GPS multi-route works independently of the
+--- player's waypoint and blip routes, so phone/GPS/HUD scripts can't override it.
+local function applyRoute()
+    if not routeTarget then return end
+    ClearGpsMultiRoute()
+    StartGpsMultiRoute(routeColor or 12, true, true)
+    AddPointToGpsMultiRoute(routeTarget.x, routeTarget.y, routeTarget.z)
+    SetGpsMultiRouteRender(true)
+end
+
+local function clearRoute()
+    routeTarget = nil
+    ClearGpsMultiRoute()
+end
+
+-- keep the route alive in case something else cleared it
+CreateThread(function()
+    while true do
+        Wait(15000)
+        if routeTarget then applyRoute() end
+    end
+end)
+
+local HUD_COLOR = { [5] = 12, [2] = 18, [3] = 9 } -- blip colour -> HUD colour (yellow / green / blue)
+
 local function setBlip(coords, label, sprite, color)
     if blip then RemoveBlip(blip) end
-    SetNewWaypoint(coords.x, coords.y) -- GPS waypoint as well as the blip route
+    routeTarget, routeColor = vec3(coords.x, coords.y, coords.z), HUD_COLOR[color or 5] or 12
+    applyRoute()
+    if Config.Runs.setWaypoint then SetNewWaypoint(coords.x, coords.y) end
     blip = AddBlipForCoord(coords.x, coords.y, coords.z)
+    SetBlipDisplay(blip, 4)
+    SetBlipAsShortRange(blip, false)
     SetBlipSprite(blip, sprite or 1)
     SetBlipColour(blip, color or 5)
-    SetBlipRoute(blip, true)
-    SetBlipRouteColour(blip, color or 5)
     BeginTextCommandSetBlipName('STRING')
     AddTextComponentSubstringPlayerName(label)
     EndTextCommandSetBlipName(blip)
@@ -60,6 +89,7 @@ end)
 
 local function cleanup()
     if blip then RemoveBlip(blip) blip = nil end
+    clearRoute()
     text(nil)
     run = nil
     SendNUIMessage({ action = 'hud', data = false })
@@ -287,7 +317,10 @@ CreateThread(function()
 end)
 
 AddEventHandler('onResourceStop', function(res)
-    if res == GetCurrentResourceName() then text(nil) end
+    if res == GetCurrentResourceName() then
+        text(nil)
+        if routeTarget then ClearGpsMultiRoute() end
+    end
 end)
 
 -- Self-check (this is the last client file): report files that didn't load.
