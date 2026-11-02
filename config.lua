@@ -65,7 +65,7 @@ Config.Interiors = {
         origin = vec3(1094.988, -3101.776, -39.0),
         -- spawn / exit are offsets from origin (player coords, not floor)
         spawn = vec4(0.0, 0.0, 0.0, 90.0),
-        exit = vec3(0.0, 0.0, 0.0),        -- defaults to where you arrive; move it onto the door with /truckco_furnish
+        exit = vec3(-7.39, 2.30, 0.00),     -- placed in-game with /truckco_furnish
         -- fallback interaction spots, only used if the matching `interact` prop is missing
         computer = vec3(-3.0, 2.0, 0.0),
         board = vec3(-3.0, -2.0, 0.0),
