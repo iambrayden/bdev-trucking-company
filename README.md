@@ -53,7 +53,7 @@ Buy a depot down by the docks, build out the empty office shell, hire staff (NPC
 1. Drop the folder into your resources, e.g. `resources/[jobs]/bdev-trucking-company`.
 2. Add `ensure bdev-trucking-company` to `server.cfg` **after** qbx_core, ox_lib, oxmysql and ox_target.
 3. Start the server. Tables are created automatically from `sql/install.sql`, or you can run that file yourself.
-4. **Place the office furniture.** Walk into your office and run `/truckco_furnish` (admin). Pick an item, aim where it should go (scroll to rotate, arrows for height), press Enter, and paste the copied line into `Config.Interiors[...].furniture`. Do the same with "Set exit at my feet" while standing on the door. Furniture is snapped to the floor automatically.
+4. **Set the office exit (admin).** Inside an office run `/truckco_furnish` → *Set exit at my feet* while standing on the door, and paste the line into `config.lua`. The same menu can arrange the *default* furniture for every company and copy the config lines.
 5. **Check the coordinates in `config.lua`.** The depot entrances, truck spawns, pickup lots and destinations are sensible defaults, but you should check them on your map (especially if you run dock MLOs). Stand where you want a point and use `/truckco_pos` (admin) to copy a `vec4`.
 
 ## How to play
@@ -72,12 +72,12 @@ Buy a depot down by the docks, build out the empty office shell, hire staff (NPC
 
 | Command | Who | What |
 |---|---|---|
-| `/trucktablet` | staff | Open the company tablet (`Config.Tablet.command`) |
+| `/trucktablet` | owners & employees | Open the company tablet (`Config.Tablet.command`). Bindable in Settings → Key Bindings → FiveM |
 | `/truckjob` | employees | Tablet → My shift: clock in/out, paycheck, start assigned loads |
 | `/truckboard` | staff | Tablet → Bid board |
 | `/truckco_cancel` | driver | Abandon the current load (recovery fee) |
 | `/truckco_pos` | admin | Copy your current `vec4` for config |
-| `/truckco_furnish` | admin | Inside an office: move furniture / exit / spawn in-game and copy the config lines |
+| `/truckco_furnish` | admin | Inside an office: set exit / spawn spots and arrange furniture for the **config defaults** (copies config lines) |
 | `/truckco_board [n]` | admin | Force-generate contracts |
 | `/truckco_givefunds <companyId> <amount>` | admin | Adjust a company balance |
 
@@ -104,6 +104,22 @@ Everything economic lives in `config.lua`:
 - `Config.Dispatch`: dispatcher tick rate and capacity.
 - `Config.Payroll`: payroll interval, overdraft limit, whether player wages need clocking in.
 - `Config.Upgrades`: office upgrades and their effects. The matching furniture props are in `Config.Interiors[...].furniture`.
+
+### Arranging the office
+
+Owners and managers can move their own furniture: tablet → **Office** → **Arrange furniture**. The layout is saved for the company and loads for everyone who enters.
+
+| Key | Action |
+|---|---|
+| Look at a prop + **E** | Pick it up / put it down |
+| Aim | Props sit on floors and desks, and mount flush on walls (TV / board) |
+| **Scroll** | Rotate (hold **Shift** for 1° steps) |
+| **↑ / ↓** | Raise / lower |
+| **Backspace** | Put the held prop back, or leave without saving |
+| **R** | Reset to the default layout |
+| **Enter** | Save |
+
+Anything stacked on a prop (the laptop on the desk) moves with it.
 
 ### Leaving the office
 

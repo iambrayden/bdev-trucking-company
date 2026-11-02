@@ -14,6 +14,14 @@ const S = {
 const IS_FIVEM = typeof GetParentResourceName === 'function';
 const RES = IS_FIVEM ? GetParentResourceName() : 'bdev-trucking-company';
 
+// surface UI errors in the game's F8 console
+window.addEventListener('error', (e) => {
+  if (IS_FIVEM) fetch(`https://${RES}/nuiError`, { method: 'POST', body: JSON.stringify({ msg: `${e.message} @ ${e.filename}:${e.lineno}` }) }).catch(() => {});
+});
+window.addEventListener('unhandledrejection', (e) => {
+  if (IS_FIVEM) fetch(`https://${RES}/nuiError`, { method: 'POST', body: JSON.stringify({ msg: String(e.reason && (e.reason.stack || e.reason)) }) }).catch(() => {});
+});
+
 async function post(endpoint, data) {
   if (window.TC_MOCK) return window.TC_MOCK.post(endpoint, data);
   try {
@@ -479,7 +487,8 @@ function dealer() {
 VIEWS.upgrades = async () => {
   const d = S.dash;
   const ups = obj(d.upgrades);
-  let h = head('Office upgrades', 'Your office starts as a bare shell. Each upgrade adds furniture and raises a company limit.');
+  let h = head('Office upgrades', 'Your office starts as a bare shell. Each upgrade adds furniture and raises a company limit.',
+    S.inOffice ? `<button class="btn primary" ${act(() => post('arrange'))}><i class="fa-solid fa-couch"></i>Arrange furniture</button>` : '');
   h += `<div class="grid g2">`;
   Object.entries(S.cfg.upgrades).sort((a, b) => a[1].label.localeCompare(b[1].label)).forEach(([key, up]) => {
     const lvl = ups[key] || 0;
@@ -589,6 +598,7 @@ async function open(msg) {
   S.sel = {};
   S.view = {};
   $('#root').classList.remove('hidden');
+  post('opened');
   scaleTablet();
   tickClock();
   $('#content').innerHTML = '<div class="spin"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
@@ -609,3 +619,4 @@ $('#homebtn').addEventListener('click', close);
 
 // browser preview / screenshot mode
 if (window.TC_MOCK) window.TC_MOCK.ready(open);
+else post('ready');

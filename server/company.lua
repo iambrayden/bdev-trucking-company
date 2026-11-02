@@ -123,6 +123,7 @@ lib.callback.register('truckco:server:enterOffice', function(src, propertyId)
     return TC.result(true, nil, {
         interior = prop.interior,
         upgrades = company.upgrades,
+        layout = TC.layoutFor(company),
         role = role,
         name = company.name,
     })
@@ -224,7 +225,7 @@ lib.callback.register('truckco:server:buyUpgrade', function(src, key)
     -- refresh furniture for everyone currently inside
     for s, propId in pairs(TC.inside) do
         if propId == company.property then
-            TriggerClientEvent('truckco:client:refreshFurniture', s, company.upgrades)
+            TriggerClientEvent('truckco:client:refreshFurniture', s, company.upgrades, TC.layoutFor(company))
         end
     end
     return TC.result(true, ('%s upgraded to level %d.'):format(up.label, lvl + 1))
@@ -241,4 +242,53 @@ lib.callback.register('truckco:server:saveSettings', function(src, settings)
     }
     MySQL.update.await('UPDATE truckco_companies SET settings = ? WHERE id = ?', { json.encode(s), company.id })
     return TC.result(true, 'Dispatch settings saved.')
+end)
+
+--------------------------------------------------------------------------------
+-- Office furniture layout (saved per company, per interior)
+--------------------------------------------------------------------------------
+function TC.layoutFor(company)
+    local prop = Config.Properties[company.property]
+    local l = company.layout
+    if type(l) == 'table' and prop and l.interior == prop.interior and type(l.items) == 'table' then
+        return l.items
+    end
+    return nil
+end
+
+local function num(v, lo, hi)
+    v = tonumber(v)
+    if not v or v ~= v or v == math.huge or v == -math.huge then return nil end
+    return math.floor(TCShared.clamp(v, lo, hi) * 100 + 0.5) / 100
+end
+
+lib.callback.register('truckco:server:saveLayout', function(src, items)
+    local company, err = TC.authorize(src, 'upgrades')
+    if not company then return TC.result(false, err) end
+    if TC.inside[src] ~= company.property then return TC.result(false, 'You need to be inside the office.') end
+    if type(items) ~= 'table' then return TC.result(false, 'Invalid layout.') end
+    local clean, count = {}, 0
+    for key, t in pairs(items) do
+        count = count + 1
+        if count > 100 then return TC.result(false, 'Too many items.') end
+        if type(key) ~= 'string' or #key > 64 or type(t) ~= 'table' then return TC.result(false, 'Invalid layout.') end
+        local x, y, z, h = num(t.x, -60, 60), num(t.y, -60, 60), num(t.z, 0, 10), num(t.h, -720, 720)
+        if not (x and y and z and h) then return TC.result(false, 'Invalid layout.') end
+        clean[key] = { x = x, y = y, z = z, h = h % 360 }
+    end
+    local prop = Config.Properties[company.property]
+    company.layout = { interior = prop.interior, items = clean }
+    MySQL.update.await('UPDATE truckco_companies SET layout = ? WHERE id = ?', { json.encode(company.layout), company.id })
+    for s, propId in pairs(TC.inside) do
+        if s ~= src and propId == company.property then
+            TriggerClientEvent('truckco:client:refreshFurniture', s, company.upgrades, clean)
+        end
+    end
+    return TC.result(true, 'Office layout saved.')
+end)
+
+lib.callback.register('truckco:server:tabletAccess', function(src)
+    local company, role = TC.getMembership(src)
+    if not company then return TC.result(false, 'You do not work for a trucking company.') end
+    return TC.result(true, nil, { role = role, name = company.name })
 end)

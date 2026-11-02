@@ -6,6 +6,8 @@
 
 local isOpen = false
 local tabletObj = nil
+local nuiReady = false
+local openToken = 0
 
 -- server callbacks the tablet may invoke
 local ALLOWED = {
@@ -85,8 +87,12 @@ function TCC.openTablet(app, extra)
         return TCC.notify('No signal out here. Use the tablet at your depot.', 'error')
     end
     isOpen = true
-    startProp()
+    local ok, err = pcall(startProp)
+    if not ok then print('[truckco] tablet prop/anim failed: ' .. tostring(err)) end
     SetNuiFocus(true, true)
+    openToken = openToken + 1
+    local token = openToken
+    TCC.tabletAck = false
     SendNUIMessage({
         action = 'open',
         app = app or 'home',
@@ -94,6 +100,14 @@ function TCC.openTablet(app, extra)
         inOffice = TCC.isInOffice(),
         config = uiConfig(),
     })
+    -- if the UI never confirms it opened, don't leave the player stuck with mouse focus
+    SetTimeout(3000, function()
+        if isOpen and token == openToken and not TCC.tabletAck then
+            print(('[truckco] tablet UI did not respond (nuiReady=%s). Check F8 / NUI devtools for errors.'):format(tostring(nuiReady)))
+            TCC.closeTablet()
+            TCC.notify('The tablet UI failed to load. Press F8 for details.', 'error')
+        end
+    end)
 end
 
 function TCC.closeTablet()
@@ -103,6 +117,27 @@ function TCC.closeTablet()
     SendNUIMessage({ action = 'close' })
     stopProp()
 end
+
+RegisterNUICallback('ready', function(_, cb)
+    nuiReady = true
+    cb(1)
+end)
+
+RegisterNUICallback('opened', function(_, cb)
+    TCC.tabletAck = true
+    cb(1)
+end)
+
+RegisterNUICallback('nuiError', function(data, cb)
+    print(('[truckco] tablet UI error: %s'):format(type(data) == 'table' and tostring(data.msg) or tostring(data)))
+    cb(1)
+end)
+
+RegisterNUICallback('arrange', function(_, cb)
+    cb(1)
+    TCC.closeTablet()
+    TCC.startEditor('save')
+end)
 
 RegisterNUICallback('close', function(_, cb)
     TCC.closeTablet()
@@ -148,12 +183,22 @@ RegisterNUICallback('companyGone', function(_, cb)
     if TCC.isInOffice() then TCC.exitOffice() end
 end)
 
--- commands
-if Config.Tablet.command then
-    RegisterCommand(Config.Tablet.command, function() TCC.openTablet('home') end, false)
+-- commands: only for people who own or work for a trucking company
+local function openIfMember(app)
+    local res = lib.callback.await('truckco:server:tabletAccess', false)
+    if not res or not res.ok then
+        return TCC.notify(res and res.msg or 'You do not work for a trucking company.', 'error')
+    end
+    TCC.openTablet(app)
 end
-RegisterCommand('truckjob', function() TCC.openTablet('driver') end, false)
-RegisterCommand('truckboard', function() TCC.openTablet('board') end, false)
+
+if Config.Tablet.command then
+    RegisterCommand(Config.Tablet.command, function() openIfMember('home') end, false)
+    -- lets players bind a key in Settings > Key Bindings > FiveM (no default key)
+    RegisterKeyMapping(Config.Tablet.command, 'Open trucking company tablet', 'keyboard', '')
+end
+RegisterCommand('truckjob', function() openIfMember('driver') end, false)
+RegisterCommand('truckboard', function() openIfMember('board') end, false)
 
 AddEventHandler('onResourceStop', function(res)
     if res == GetCurrentResourceName() and isOpen then

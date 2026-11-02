@@ -81,15 +81,22 @@ end
 
 local function placeList(list, source)
     local int = office.interior
-    for _, f in ipairs(list or {}) do
+    local saved = office.layout or {}
+    for i, f in ipairs(list or {}) do
+        local key = f.id or ('%s#%d'):format(source, i)
         local x, y = int.origin.x + f.offset.x, int.origin.y + f.offset.y
-        local base = office.floor + f.offset.z
-        if f.on and office.byId[f.on] then
+        local base, heading = office.floor + f.offset.z, f.offset.w
+        local s = saved[key]
+        if type(s) == 'table' and tonumber(s.x) then
+            -- company's saved layout wins over the config default
+            x, y = int.origin.x + s.x, int.origin.y + s.y
+            base, heading = office.floor + (s.z or 0.0), s.h or heading
+        elseif f.on and office.byId[f.on] then
             base = topOf(office.byId[f.on].obj) + f.offset.z
         end
-        local obj = spawnProp(f.model, x, y, base, f.offset.w)
+        local obj = spawnProp(f.model, x, y, base, heading)
         if obj then
-            local item = { def = f, obj = obj, source = source }
+            local item = { def = f, obj = obj, source = source, key = key }
             office.items[#office.items + 1] = item
             if f.id then office.byId[f.id] = item end
             addInteraction(item)
@@ -97,7 +104,8 @@ local function placeList(list, source)
     end
 end
 
-local function placeFurniture(upgrades)
+local function placeFurniture(upgrades, layout)
+    if layout ~= nil then office.layout = layout or nil end
     clearFurniture()
     local furniture = office.interior.furniture or {}
     placeList(furniture.base, 'base')
@@ -224,6 +232,8 @@ function TCC.enterOffice(propertyId)
     -- go in first so collision is streamed, THEN find the floor and furnish
     moveTo(TCShared.offset(int.origin, int.spawn), int.spawn.w)
     office.floor = findFloor(int.origin)
+    office.layout = res.data.layout
+    office.savedLayout = res.data.layout
     placeFurniture(res.data.upgrades)
     addZones()
     SetResourceKvp(KVP_KEY, propertyId)
@@ -251,9 +261,10 @@ end
 function TCC.isInOffice() return office ~= nil end
 function TCC.currentProperty() return office and office.propertyId end
 
-RegisterNetEvent('truckco:client:refreshFurniture', function(upgrades)
-    if office then
-        placeFurniture(upgrades)
+RegisterNetEvent('truckco:client:refreshFurniture', function(upgrades, layout)
+    if office and not TCC.isEditing() then
+        office.savedLayout = layout
+        placeFurniture(upgrades, layout or false)
         removeZones()
         addZones()
     end
@@ -281,88 +292,227 @@ AddEventHandler('onResourceStop', function(res)
 end)
 
 --------------------------------------------------------------------------------
--- Admin furniture placer: /truckco_furnish
---   Aim with the camera, scroll to rotate, arrows for height, ENTER to save,
---   BACKSPACE to cancel. Prints a ready-to-paste config line and copies it.
+-- Furniture editor
+--   'save'   : owner / manager arranges the office; saved for the company
+--              (tablet -> Office -> Arrange furniture)
+--   'config' : admin; prints ready-to-paste config lines instead (/truckco_furnish)
+--
+--   Look at a prop and press E to pick it up. It follows your aim: it sits on
+--   floors and desks, and mounts flush on walls. Props stacked on it (the
+--   laptop on the desk) move along with it.
+--     Scroll       rotate (hold Shift for fine)
+--     Arrow up/dn  raise / lower
+--     E            put down
+--     Backspace    put back (while holding) / leave without saving
+--     R            reset everything to the default layout
+--     Enter        save and finish
 --------------------------------------------------------------------------------
-local placing = false
+local editing = nil -- { mode, held, hover }
 
-local function aimPoint()
+function TCC.isEditing() return editing ~= nil end
+
+local function camRay(ignore)
     local camPos = GetGameplayCamCoord()
     local rot = GetGameplayCamRot(2)
     local rx, rz = math.rad(rot.x), math.rad(rot.z)
     local dir = vec3(-math.sin(rz) * math.abs(math.cos(rx)), math.cos(rz) * math.abs(math.cos(rx)), math.sin(rx))
-    local dest = camPos + dir * 12.0
-    local ray = StartShapeTestLosProbe(camPos.x, camPos.y, camPos.z, dest.x, dest.y, dest.z, 1 + 16, cache.ped, 4)
-    local status, hit, coords
-    repeat
-        status, hit, coords = GetShapeTestResult(ray)
-        if status == 1 then Wait(0) end
-    until status ~= 1
-    return hit == 1 and coords or dest
+    local dest = camPos + dir * 15.0
+    local ray = StartExpensiveSynchronousShapeTestLosProbe(camPos.x, camPos.y, camPos.z, dest.x, dest.y, dest.z, 1 | 16, ignore or 0, 4)
+    local _, hit, pos, normal, ent = GetShapeTestResult(ray)
+    return hit == 1, pos, normal, ent
+end
+
+local function itemFromEntity(ent)
+    if not ent or ent == 0 then return nil end
+    for _, item in ipairs(office.items) do
+        if item.obj == ent then return item end
+    end
+end
+
+local function outline(obj, on)
+    if obj and DoesEntityExist(obj) then
+        SetEntityDrawOutline(obj, on)
+        if on then SetEntityDrawOutlineColor(253, 126, 20, 255) end
+    end
+end
+
+local function pickUp(item)
+    local obj = item.obj
+    local held = {
+        item = item,
+        startPos = GetEntityCoords(obj),
+        startHeading = GetEntityHeading(obj),
+        rot = 0.0,
+        lift = 0.0,
+        children = {},
+    }
+    -- anything stacked on this prop rides along
+    for _, other in ipairs(office.items) do
+        if other ~= item and other.def.on and other.def.on == item.def.id then
+            local off = GetOffsetFromEntityGivenWorldCoords(obj, GetEntityCoords(other.obj))
+            local rel = GetEntityHeading(other.obj) - GetEntityHeading(obj)
+            FreezeEntityPosition(other.obj, false)
+            AttachEntityToEntity(other.obj, obj, -1, off.x, off.y, off.z, 0.0, 0.0, rel, false, false, false, false, 2, true)
+            held.children[#held.children + 1] = other
+        end
+    end
+    SetEntityCollision(obj, false, false)
+    SetEntityAlpha(obj, 210, false)
+    outline(obj, true)
+    editing.held = held
+end
+
+local function putDown(restore)
+    local h = editing.held
+    if not h then return end
+    local obj = h.item.obj
+    if restore then
+        SetEntityCoordsNoOffset(obj, h.startPos.x, h.startPos.y, h.startPos.z, false, false, false)
+        SetEntityHeading(obj, h.startHeading)
+    end
+    for _, child in ipairs(h.children) do
+        DetachEntity(child.obj, false, false)
+        FreezeEntityPosition(child.obj, true)
+    end
+    SetEntityCollision(obj, true, true)
+    ResetEntityAlpha(obj)
+    outline(obj, false)
+    FreezeEntityPosition(obj, true)
+    editing.held = nil
+end
+
+local function follow(h)
+    local obj = h.item.obj
+    local hit, pos, normal = camRay(obj)
+    if not hit then return end
+    local min, max = GetModelDimensions(GetEntityModel(obj))
+    local x, y, z, heading
+    if normal.z > 0.55 then
+        -- floor / desk top: bottom of the model sits on the surface
+        heading = h.startHeading + h.rot
+        x, y, z = pos.x, pos.y, pos.z - min.z + h.lift
+    else
+        -- wall: face away from the wall, back flush against it
+        heading = GetHeadingFromVector_2d(normal.x, normal.y) + h.rot
+        local c, s = math.cos(math.rad(h.rot)), math.sin(math.rad(h.rot))
+        local depth
+        if math.abs(c) >= math.abs(s) then depth = c > 0 and -min.y or max.y
+        else depth = s > 0 and -min.x or max.x end
+        x, y = pos.x + normal.x * (depth + 0.01), pos.y + normal.y * (depth + 0.01)
+        z = pos.z + h.lift
+    end
+    SetEntityCoordsNoOffset(obj, x, y, z, false, false, false)
+    SetEntityHeading(obj, heading % 360.0)
 end
 
 local function fmt(n) return ('%.2f'):format(n) end
 
-local function itemLine(item)
+local function itemTransform(item)
     local o = office.interior.origin
     local c = GetEntityCoords(item.obj)
+    return {
+        x = tonumber(fmt(c.x - o.x)), y = tonumber(fmt(c.y - o.y)),
+        z = tonumber(fmt(math.max(0.0, bottomOf(item.obj) - office.floor))),
+        h = tonumber(fmt(GetEntityHeading(item.obj))),
+    }
+end
+
+local function itemLine(item)
+    local t = itemTransform(item)
     local d = item.def
     local parts = {}
     if d.id then parts[#parts + 1] = ("id = '%s'"):format(d.id) end
     parts[#parts + 1] = ("model = '%s'"):format(type(d.model) == 'string' and d.model or tostring(d.model))
-    parts[#parts + 1] = ('offset = vec4(%s, %s, %s, %s)'):format(fmt(c.x - o.x), fmt(c.y - o.y),
-        fmt(math.max(0.0, bottomOf(item.obj) - office.floor)), fmt(GetEntityHeading(item.obj)))
+    parts[#parts + 1] = ('offset = vec4(%s, %s, %s, %s)'):format(fmt(t.x), fmt(t.y), fmt(t.z), fmt(t.h))
     if d.interact then parts[#parts + 1] = ("interact = '%s'"):format(d.interact) end
     return ('{ %s },'):format(table.concat(parts, ', '))
 end
 
-local function output(line, label)
-    print(('[truckco] %s  ->  %s'):format(label, line))
-    lib.setClipboard(line)
-    TCC.notify(('Copied %s line to clipboard (also in F8).'):format(label), 'success')
+local function output(text, label)
+    print(('[truckco] %s:\n%s'):format(label, text))
+    lib.setClipboard(text)
+    TCC.notify(('Copied %s to clipboard (also printed in F8).'):format(label), 'success')
 end
 
-local function placeItem(item)
-    placing = true
-    local obj = item.obj
-    FreezeEntityPosition(obj, true)
-    SetEntityCollision(obj, false, false)
-    SetEntityAlpha(obj, 200, false)
-    local heading = GetEntityHeading(obj)
-    local lift = 0.0
-    local min = GetModelDimensions(GetEntityModel(obj))
-    lib.showTextUI('[Aim] move  [Scroll] rotate (Shift = fine)  [↑/↓] height  [Enter] save  [Backspace] cancel', { position = 'top-center' })
-    local start = GetEntityCoords(obj)
-    local startHeading = heading
+local function stopEditor()
+    if not editing then return end
+    if editing.held then putDown(true) end
+    if editing.hover then outline(editing.hover.obj, false) end
+    editing = nil
+    lib.hideTextUI()
+end
+
+local function saveEditor()
+    local mode = editing.mode
+    if editing.held then putDown(false) end
+    if mode == 'config' then
+        local lines = {}
+        for _, item in ipairs(office.items) do lines[#lines + 1] = itemLine(item) end
+        output(table.concat(lines, '\n'), 'furniture config lines')
+        stopEditor()
+        return
+    end
+    local items = {}
+    for _, item in ipairs(office.items) do items[item.key] = itemTransform(item) end
+    stopEditor()
+    local res = TCC.call('saveLayout', items)
+    if res.ok then office.layout = items office.savedLayout = items end
+end
+
+local HELP = '[E] pick up / put down  ·  [Scroll] rotate  ·  [↑/↓] height  ·  [R] reset  ·  [Backspace] back  ·  [Enter] save'
+
+function TCC.startEditor(mode)
+    if not office then return TCC.notify('Go inside your office first.', 'error') end
+    if editing then return end
+    editing = { mode = mode or 'save' }
+    lib.showTextUI(HELP, { position = 'top-center', icon = 'couch' })
+    TCC.notify(mode == 'config' and 'Furniture editor (config mode): Enter copies config lines.' or 'Arrange your office. Press Enter to save.', 'inform')
     CreateThread(function()
-        while placing do
-            DisableControlAction(0, 14, true); DisableControlAction(0, 15, true)
-            DisableControlAction(0, 24, true); DisableControlAction(0, 25, true)
-            local step = IsControlPressed(0, 21) and 1.0 or 5.0
-            if IsDisabledControlJustPressed(0, 15) then heading = (heading + step) % 360 end
-            if IsDisabledControlJustPressed(0, 14) then heading = (heading - step) % 360 end
-            if IsControlPressed(0, 172) then lift = lift + 0.01 end
-            if IsControlPressed(0, 173) then lift = lift - 0.01 end
-            local p = aimPoint()
-            SetEntityCoordsNoOffset(obj, p.x, p.y, p.z - min.z + lift, false, false, false)
-            SetEntityHeading(obj, heading)
-            if IsControlJustPressed(0, 191) then
-                placing = false
-                output(itemLine(item), item.def.id or item.def.model)
-            elseif IsControlJustPressed(0, 177) then
-                placing = false
-                SetEntityCoordsNoOffset(obj, start.x, start.y, start.z, false, false, false)
-                SetEntityHeading(obj, startHeading)
+        while editing do
+            for _, c in ipairs({ 14, 15, 16, 17, 24, 25, 37, 44, 45, 140, 141, 142, 257, 263 }) do DisableControlAction(0, c, true) end
+            local h = editing.held
+            if h then
+                local step = IsControlPressed(0, 21) and 1.0 or 15.0
+                if IsDisabledControlJustPressed(0, 15) or IsDisabledControlJustPressed(0, 17) then h.rot = h.rot + step end
+                if IsDisabledControlJustPressed(0, 14) or IsDisabledControlJustPressed(0, 16) then h.rot = h.rot - step end
+                if IsControlPressed(0, 172) then h.lift = h.lift + 0.01 end
+                if IsControlPressed(0, 173) then h.lift = h.lift - 0.01 end
+                follow(h)
+                if IsControlJustPressed(0, 38) then putDown(false)
+                elseif IsControlJustPressed(0, 177) then putDown(true) end
+            else
+                local _, _, _, ent = camRay(0)
+                local item = itemFromEntity(ent)
+                if item ~= editing.hover then
+                    if editing.hover then outline(editing.hover.obj, false) end
+                    if item then outline(item.obj, true) end
+                    editing.hover = item
+                end
+                if item and IsControlJustPressed(0, 38) then
+                    editing.hover = nil
+                    pickUp(item)
+                elseif IsControlJustPressed(0, 177) then
+                    -- leave without saving: rebuild from the last saved layout
+                    stopEditor()
+                    placeFurniture(office.upgrades, office.savedLayout or false)
+                    TCC.notify('Changes discarded.', 'inform')
+                    break
+                elseif IsDisabledControlJustPressed(0, 45) then
+                    if editing.hover then outline(editing.hover.obj, false) editing.hover = nil end
+                    placeFurniture(office.upgrades, false)
+                    TCC.notify('Reset to the default layout. Press Enter to save it.', 'inform')
+                end
+            end
+            if editing and IsControlJustPressed(0, 191) then
+                saveEditor()
+                break
             end
             Wait(0)
         end
-        ResetEntityAlpha(obj)
-        SetEntityCollision(obj, true, true)
-        lib.hideTextUI()
     end)
 end
 
+-- spawn / exit / timeclock points for the config (admin)
 local function pointLine(name)
     local o = office.interior.origin
     local c = GetEntityCoords(cache.ped)
@@ -374,16 +524,11 @@ end
 
 RegisterNetEvent('truckco:client:furnish', function()
     if not office then return TCC.notify('Enter an office first.', 'error') end
-    if placing then return end
-    local options = {}
-    for _, item in ipairs(office.items) do
-        options[#options + 1] = {
-            title = item.def.id or item.def.model,
-            description = ('%s • %s%s'):format(item.def.model, item.source, item.def.interact and (' • opens ' .. item.def.interact) or ''),
-            icon = item.def.interact and 'hand-pointer' or 'couch',
-            onSelect = function() placeItem(item) end,
-        }
-    end
+    if editing then return end
+    local options = {
+        { title = 'Arrange furniture (config lines)', description = 'Move props in-game; Enter copies lines for config.lua', icon = 'couch',
+          onSelect = function() TCC.startEditor('config') end },
+    }
     for _, p in ipairs({ 'spawn', 'exit', 'timeclock' }) do
         options[#options + 1] = {
             title = ('Set %s at my feet'):format(p),
@@ -397,9 +542,9 @@ RegisterNetEvent('truckco:client:furnish', function()
         onSelect = function()
             local lines = {}
             for _, item in ipairs(office.items) do lines[#lines + 1] = itemLine(item) end
-            output(table.concat(lines, '\n'), 'all furniture')
+            output(table.concat(lines, '\n'), 'furniture config lines')
         end,
     }
-    lib.registerContext({ id = 'truckco_furnish', title = 'Furniture placer (admin)', options = options })
+    lib.registerContext({ id = 'truckco_furnish', title = 'Office setup (admin)', options = options })
     lib.showContext('truckco_furnish')
 end)

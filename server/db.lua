@@ -14,6 +14,18 @@ MySQL.ready(function() CreateThread(function()
             if not ok then print('^1[truckco] schema error: ' .. tostring(err) .. '^0') end
         end
     end
+    -- migrations for existing installs (no manual SQL needed)
+    local function ensureColumn(tbl, col, def)
+        local has = MySQL.scalar.await(
+            'SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+            { tbl, col })
+        if (has or 0) == 0 then
+            MySQL.query.await(('ALTER TABLE `%s` ADD COLUMN `%s` %s'):format(tbl, col, def))
+            print(('^3[truckco] added column %s.%s^0'):format(tbl, col))
+        end
+    end
+    ensureColumn('truckco_companies', 'layout', 'LONGTEXT NULL')
+
     -- contracts that were mid-flight with a player when the server stopped go back to "awarded"
     MySQL.update.await("UPDATE truckco_contracts SET status = 'completed' WHERE status = 'delivered'")
     MySQL.update.await("UPDATE truckco_contracts SET status = 'awarded', employee_id = NULL, truck_id = NULL, started_at = NULL, driver_kind = NULL WHERE status IN ('assigned','in_progress') AND driver_kind = 'player'")
