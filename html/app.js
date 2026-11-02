@@ -477,8 +477,14 @@ function dealer() {
     h += `<div class="card"><img class="truck-img" src="${truckImg(model)}" onerror="this.style.visibility='hidden'">
       <div class="row between"><div class="bold">${esc(def.label)}</div><span class="chip ${def.class === 'semi' ? 'blue' : 'accent'}">${def.class === 'semi' ? 'Semi' : 'Box truck'}</span></div>
       <div class="muted small mt8">${def.class === 'semi' ? 'Pulls trailers: freight, fuel, timber, machinery. Drivers need a CDL.' : 'Local freight like parcels and furniture. No CDL needed.'}</div>
+      <div class="field mt12" style="margin-bottom:0"><label>Insurance</label><select class="input" id="ins-${model}">${Object.entries(S.cfg.insurance).map(([k, v]) => `<option value="${k}" ${k === 'basic' ? 'selected' : ''}>${esc(v.label)} — ${money(def.price * v.premiumPct)}/payroll</option>`).join('')}</select></div>
       <div class="row between mt12"><div style="font-size:20px;font-weight:800">${money(def.price)}</div>
-      <button class="btn primary" ${act(async () => { if (await confirmBox('Buy truck', `Buy a <b>${esc(def.label)}</b> for <b>${money(def.price)}</b> from the company account?`, 'Buy')) { const r = await run('buyTruck', model); if (r.ok) { S.view.dealer = false; render(); } } })}>Buy</button></div></div>`;
+      <button class="btn primary" ${act(async () => {
+        const tier = $('#ins-' + model).value;
+        if (await confirmBox('Buy truck', `Buy a <b>${esc(def.label)}</b> for <b>${money(def.price)}</b> from the company account, with <b>${esc(S.cfg.insurance[tier].label)}</b>?`, 'Buy')) {
+          const r = await run('buyTruck', model, tier); if (r.ok) { S.view.dealer = false; render(); }
+        }
+      })}>Buy</button></div></div>`;
   });
   return h + `</div>`;
 }
@@ -489,6 +495,9 @@ VIEWS.upgrades = async () => {
   const ups = obj(d.upgrades);
   let h = head('Office upgrades', 'Your office starts as a bare shell. Each upgrade adds furniture and raises a company limit.',
     S.inOffice ? `<button class="btn primary" ${act(() => post('arrange'))}><i class="fa-solid fa-couch"></i>Arrange furniture</button>` : '');
+  h += `<div class="card mb12" style="margin-bottom:14px"><div class="row between"><div class="row"><div class="item" style="padding:0;border:0;background:none"><div class="ic accent"><i class="fa-solid fa-sign-hanging"></i></div></div>
+      <div><div class="bold">Exterior signs</div><div class="muted small">${d.signs || 0} of ${S.cfg.signs.max} placed • ${money(S.cfg.signs.price)} per new sign • shows your company name outside the depot</div></div></div>
+      ${S.inOffice ? `<span class="chip">Go outside to place signs</span>` : `<button class="btn primary" ${act(() => post('placeSigns'))}><i class="fa-solid fa-sign-hanging"></i>Place signs</button>`}</div></div>`;
   h += `<div class="grid g2">`;
   Object.entries(S.cfg.upgrades).sort((a, b) => a[1].label.localeCompare(b[1].label)).forEach(([key, up]) => {
     const lvl = ups[key] || 0;

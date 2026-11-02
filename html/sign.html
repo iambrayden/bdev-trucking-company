@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1024px; height: 384px; overflow: hidden; font-family: Inter, Arial Black, sans-serif; }
+  .sign { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 0 56px; position: relative; border: 14px solid; }
+  .name { font-weight: 900; line-height: 1.02; letter-spacing: -1px; text-transform: uppercase; white-space: nowrap; }
+  .sub { margin-top: 14px; font-weight: 800; font-size: 34px; letter-spacing: 6px; text-transform: uppercase; display: flex; align-items: center; gap: 18px; }
+  .stripe { position: absolute; left: 0; right: 0; bottom: 0; height: 26px; }
+  .truck { width: 64px; height: 34px; }
+  /* styles */
+  .orange { background: #16181d; border-color: #2a2d33; color: #fff; } .orange .sub { color: #fd7e14; } .orange .stripe { background: repeating-linear-gradient(-45deg, #fd7e14 0 28px, #16181d 28px 56px); }
+  .white { background: #f4f5f7; border-color: #1f2328; color: #15171b; } .white .sub { color: #4a4f57; } .white .stripe { background: #1f2328; }
+  .navy { background: #0f2747; border-color: #c9d3e0; color: #fff; } .navy .sub { color: #9fc3ff; } .navy .stripe { background: #c9d3e0; }
+  .red { background: #b3161b; border-color: #f1f1f1; color: #fff; } .red .sub { color: #ffd9d9; } .red .stripe { background: repeating-linear-gradient(-45deg, #fff 0 28px, #b3161b 28px 56px); }
+</style>
+</head>
+<body>
+<div class="sign" id="s">
+  <div class="name" id="n"></div>
+  <div class="sub"><svg class="truck" viewBox="0 0 64 34" fill="currentColor"><rect x="0" y="4" width="38" height="20" rx="2"/><path d="M40 10h12l8 8v6H40z"/><circle cx="12" cy="28" r="5"/><circle cx="50" cy="28" r="5"/></svg>Freight &amp; Logistics</div>
+  <div class="stripe"></div>
+</div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const s = document.getElementById('s'), n = document.getElementById('n');
+  s.classList.add(q.get('style') || 'orange');
+  n.textContent = q.get('name') || 'Trucking Co.';
+  // shrink to fit
+  let size = 150;
+  const fit = () => { n.style.fontSize = size + 'px'; if (n.scrollWidth > s.clientWidth - 112 && size > 40) { size -= 4; fit(); } };
+  fit();
+  document.fonts && document.fonts.ready.then(() => { size = 150; fit(); });
+</script>
+</body>
+</html>

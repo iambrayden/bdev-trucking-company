@@ -20,6 +20,7 @@ Buy a depot down by the docks, build out the empty office shell, hire staff (NPC
 | ![Dispatch](docs/screenshots/11-dispatch.jpg) **Dispatch automation** | ![My shift](docs/screenshots/12-my-shift.jpg) **Driver shift: clock in, paycheck, loads** |
 | ![Buy property](docs/screenshots/13-buy-property.jpg) **Buy a depot** | ![Job offer](docs/screenshots/14-job-offer.jpg) **Job offer pop-up for hired players** |
 | ![Driving](docs/screenshots/15-driving.jpg) **Player drivers really drive** | ![Unloading](docs/screenshots/16-unloading.jpg) **Validated deliveries** |
+| ![Sign](docs/screenshots/17-sign.png) **Exterior company sign (rendered in-world)** | |
 
 ## Features
 
@@ -38,6 +39,8 @@ Buy a depot down by the docks, build out the empty office shell, hire staff (NPC
 | **Player drivers** | Real driving. Pick up the truck at the yard, hook the trailer at the port (or load a box truck), deliver, and return the truck. The server checks positions and minimum travel time, and cargo damage cuts the payout. Drivers get a commission plus their wage. |
 | **Dispatchers** | Certified NPC dispatchers automatically **bid** on loads you can cover and **assign** won loads to idle qualified drivers (NPC first, then on-duty players). Their capacity scales with skill and the Dispatch Center upgrade, and better dispatchers price bids more accurately. You can toggle each behaviour. Player dispatchers and managers do the same work by hand. |
 | **Payroll** | Every 60 min (configurable): NPC wages, player wages (only if they clocked in that cycle) paid as a paycheck collected at the time clock, insurance premiums and property upkeep. Below the overdraft limit the company is suspended, and unpaid NPCs may quit. |
+| **Exterior signs** | Owners/managers place up to 3 signs with the company name outside the depot (tablet → Office → *Place signs*). 4 styles, visible to everyone, renamed automatically with the company. |
+| **Imperial CAD** | Company trucks are registered in Imperial CAD when bought (`CreateVehicleAdvanced`), so plate checks show the company, registration and insurance. `/truckco_cadsync` registers existing trucks. |
 | **Finances** | Each company has its own account (`truckco_companies.balance`), separate from players' banks. Fund it with deposits (owner/manager), take profit out with withdrawals (owner), and audit every transaction in the ledger. All purchases, wages, premiums, claims and payouts go through it. Tablet → **Finances**. |
 
 ## Requirements
@@ -79,6 +82,7 @@ Buy a depot down by the docks, build out the empty office shell, hire staff (NPC
 | `/truckco_pos` | admin | Copy your current `vec4` for config |
 | `/truckco_furnish` | admin | Inside an office: set exit / spawn spots and arrange furniture for the **config defaults** (copies config lines) |
 | `/truckco_board [n]` | admin | Force-generate contracts |
+| `/truckco_cadsync` | admin | Register all existing company trucks in Imperial CAD |
 | `/truckco_givefunds <companyId> <amount>` | admin | Adjust a company balance |
 
 ## Permissions
@@ -120,6 +124,23 @@ Owners and managers can move their own furniture: tablet → **Office** → **Ar
 | **Enter** | Save |
 
 Anything stacked on a prop (the laptop on the desk) moves with it.
+
+### Exterior signs
+
+Stand outside your depot: tablet → **Office** → **Place signs**.
+
+| Key | Action |
+|---|---|
+| **E** | Pick up the sign you're looking at, start a new one, or place the held sign |
+| **Scroll** | Rotate (Shift = fine) |
+| **Q** | Change style |
+| **X** | Delete the held sign |
+| **Backspace** | Put it back / leave without saving |
+| **Enter** | Save (new signs are charged then) |
+
+### Imperial CAD
+
+With `Config.ImperialCAD.enabled = true` and the `ImperialCAD` resource running, each truck bought is registered with plate, make/model, registration and the insurance chosen at purchase. `owner = 'company'` registers it to the company; `owner = 'owner'` to the owner's character (citizenid as SSN). Imperial has no update/delete export, so later insurance changes and sold trucks are not reflected in the CAD.
 
 ### Leaving the office
 

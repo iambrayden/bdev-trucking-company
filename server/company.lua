@@ -18,6 +18,7 @@ end
 
 function TC.broadcastProperties()
     TriggerClientEvent('truckco:client:properties', -1, propertyState())
+    if TC.broadcastSigns then TC.broadcastSigns() end
 end
 
 lib.callback.register('truckco:server:getProperties', function()
@@ -173,6 +174,7 @@ lib.callback.register('truckco:server:getDashboard', function(src)
         counts = counts,
         suspended = TC.isSuspended(company),
         nextPayroll = math.max(0, nextPayroll),
+        signs = #(company.signs or {}),
         onRoster = emp ~= nil,
         onDuty = TC.onDuty[TC.cid(src)] ~= nil,
     })
@@ -291,4 +293,65 @@ lib.callback.register('truckco:server:tabletAccess', function(src)
     local company, role = TC.getMembership(src)
     if not company then return TC.result(false, 'You do not work for a trucking company.') end
     return TC.result(true, nil, { role = role, name = company.name })
+end)
+
+--------------------------------------------------------------------------------
+-- Exterior signs
+--------------------------------------------------------------------------------
+local STYLE = {}
+for _, st in ipairs(Config.Signs.styles) do STYLE[st.id] = true end
+
+local function signsPayload()
+    local out = {}
+    for _, c in ipairs(MySQL.query.await('SELECT id, name, signs FROM truckco_companies') or {}) do
+        local list = c.signs and json.decode(c.signs) or {}
+        if #list > 0 then out[#out + 1] = { companyId = c.id, name = c.name, items = list } end
+    end
+    return out
+end
+
+function TC.broadcastSigns()
+    TriggerClientEvent('truckco:client:signs', -1, signsPayload())
+end
+
+lib.callback.register('truckco:server:getSigns', function()
+    while not TC.ready do Wait(100) end
+    return signsPayload()
+end)
+
+lib.callback.register('truckco:server:getSignEditor', function(src)
+    local company, err = TC.authorize(src, 'upgrades')
+    if not company then return TC.result(false, err) end
+    return TC.result(true, nil, { companyId = company.id, name = company.name, property = company.property, items = company.signs or {} })
+end)
+
+lib.callback.register('truckco:server:saveSigns', function(src, items)
+    local company, err = TC.authorize(src, 'upgrades')
+    if not company then return TC.result(false, err) end
+    if type(items) ~= 'table' or #items > Config.Signs.max then
+        return TC.result(false, ('You can place up to %d signs.'):format(Config.Signs.max))
+    end
+    local prop = Config.Properties[company.property]
+    local clean = {}
+    for i = 1, #items do
+        local it = items[i]
+        local x, y, z, h = tonumber(it and it.x), tonumber(it and it.y), tonumber(it and it.z), tonumber(it and it.h)
+        if not (x and y and z and h) then return TC.result(false, 'Invalid sign.') end
+        if TC.distance(vec3(x, y, z), prop.entrance) > Config.Signs.radius + 2.0 then
+            return TC.result(false, 'Signs must stay near your depot.')
+        end
+        clean[i] = {
+            x = math.floor(x * 100 + 0.5) / 100, y = math.floor(y * 100 + 0.5) / 100, z = math.floor(z * 100 + 0.5) / 100,
+            h = math.floor((h % 360) * 10 + 0.5) / 10,
+            style = STYLE[it.style] and it.style or Config.Signs.styles[1].id,
+        }
+    end
+    local added = math.max(0, #clean - #(company.signs or {}))
+    local cost = added * Config.Signs.price
+    if cost > 0 and not TC.spend(company.id, cost, ('Exterior signs (%d new)'):format(added)) then
+        return TC.result(false, ('Company needs %s for %d new sign%s.'):format(TCShared.money(cost), added, added == 1 and '' or 's'))
+    end
+    MySQL.update.await('UPDATE truckco_companies SET signs = ? WHERE id = ?', { json.encode(clean), company.id })
+    TC.broadcastSigns()
+    return TC.result(true, cost > 0 and ('Signs saved. Paid %s.'):format(TCShared.money(cost)) or 'Signs saved.')
 end)

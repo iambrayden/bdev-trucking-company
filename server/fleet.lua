@@ -26,20 +26,23 @@ lib.callback.register('truckco:server:getFleet', function(src)
     return TC.result(true, nil, { list = rows, max = TC.effects(company).maxTrucks })
 end)
 
-lib.callback.register('truckco:server:buyTruck', function(src, model)
+lib.callback.register('truckco:server:buyTruck', function(src, model, tier)
     local company, err = TC.authorize(src, 'fleet')
     if not company then return TC.result(false, err) end
     local def = Config.Trucks[model]
     if not def then return TC.result(false, 'Unknown truck.') end
+    tier = Config.Insurance[tier] and tier or 'none'
     local count = MySQL.scalar.await('SELECT COUNT(*) FROM truckco_trucks WHERE company_id = ?', { company.id }) or 0
     if count >= TC.effects(company).maxTrucks then return TC.result(false, 'The yard is full. Expand it first.') end
     if not TC.spend(company.id, def.price, ('Purchased %s'):format(def.label)) then
         return TC.result(false, ('Company needs %s.'):format(TCShared.money(def.price)))
     end
     local plate = makePlate()
-    MySQL.insert.await('INSERT INTO truckco_trucks (company_id, model, plate, price) VALUES (?, ?, ?, ?)',
-        { company.id, model, plate, def.price })
-    return TC.result(true, ('%s [%s] added to the fleet. Consider insuring it!'):format(def.label, plate))
+    local truckId = MySQL.insert.await('INSERT INTO truckco_trucks (company_id, model, plate, price, insurance) VALUES (?, ?, ?, ?, ?)',
+        { company.id, model, plate, def.price, tier })
+    TC.cadRegisterTruck(company, { id = truckId, model = model, plate = plate, insurance = tier, price = def.price })
+    local msg = tier == 'none' and '%s [%s] added to the fleet. Consider insuring it!' or '%s [%s] added to the fleet, insured.'
+    return TC.result(true, msg:format(def.label, plate))
 end)
 
 lib.callback.register('truckco:server:repairTruck', function(src, id)

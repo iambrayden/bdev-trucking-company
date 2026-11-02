@@ -25,6 +25,7 @@ MySQL.ready(function() CreateThread(function()
         end
     end
     ensureColumn('truckco_companies', 'layout', 'LONGTEXT NULL')
+    ensureColumn('truckco_companies', 'signs', 'LONGTEXT NULL')
 
     -- contracts that were mid-flight with a player when the server stopped go back to "awarded"
     MySQL.update.await("UPDATE truckco_contracts SET status = 'completed' WHERE status = 'delivered'")

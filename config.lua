@@ -118,6 +118,40 @@ Config.Tablet = {
 }
 
 --------------------------------------------------------------------------------
+-- Exterior signs (company name, placed by owners/managers outside the depot)
+--------------------------------------------------------------------------------
+Config.Signs = {
+    max = 3,                    -- signs per company
+    price = 2500,               -- charged per new sign when saved
+    radius = 60.0,              -- how far from the depot entrance signs may go
+    drawDistance = 120.0,       -- how far away players can see them
+    size = { width = 4.0, height = 1.5, postHeight = 1.2 },  -- metres
+    resolution = { 1024, 384 }, -- sign texture size (keep the same aspect as width/height)
+    styles = {                  -- order = cycle order in the editor
+        { id = 'orange', label = 'Highway Orange' },
+        { id = 'white', label = 'Clean White' },
+        { id = 'navy', label = 'Navy' },
+        { id = 'red', label = 'Big Rig Red' },
+    },
+}
+
+--------------------------------------------------------------------------------
+-- Imperial CAD: register company trucks so police plate checks show the company
+-- (uses exports['ImperialCAD']:CreateVehicleAdvanced; skipped if not running)
+--------------------------------------------------------------------------------
+Config.ImperialCAD = {
+    enabled = true,
+    resource = 'ImperialCAD',
+    owner = 'company',          -- 'company' = registered to the company; 'owner' = to the owner's character
+    ownerUsesCitizenId = true,  -- 'owner' mode: send the owner's citizenid as ownerSSN (to link the civ)
+    regState = 'SA',
+    regValidDays = 365,
+    year = '2024',
+    color = 'White',
+    companyCity = 'Los Santos',
+}
+
+--------------------------------------------------------------------------------
 -- Company baseline + office upgrades
 --------------------------------------------------------------------------------
 Config.Base = {

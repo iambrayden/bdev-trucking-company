@@ -20,6 +20,7 @@ client_scripts {
     'client/main.lua',
     'client/office.lua',
     'client/tablet.lua',
+    'client/signs.lua',
     'client/runs.lua',
 }
 
@@ -30,6 +31,7 @@ server_scripts {
     'server/company.lua',
     'server/employees.lua',
     'server/fleet.lua',
+    'server/cad.lua',
     'server/contracts.lua',
     'server/runs.lua',
     'server/dispatch.lua',
@@ -43,6 +45,7 @@ files {
     'html/index.html',
     'html/style.css',
     'html/app.js',
+    'html/sign.html',
 }
 
 dependencies {

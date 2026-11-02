@@ -45,6 +45,7 @@
     propertyRefund: 0.6,
     hireFee: 1500,
     driverCommission: 0.15,
+    signs: { max: 3, price: 2500 },
     perms: {
       manager: { view: true, hire: true, fire: true, train: true, fleet: true, bid: true, assign: true, finance: true, deposit: true, upgrades: true, settings: true },
       dispatcher: { view: true, bid: true, assign: true },
@@ -58,7 +59,7 @@
     settings: { autoBid: true, autoAssign: true, usePlayerDrivers: false },
     effects: { maxEmployees: 10, maxTrucks: 4 + 2, dispatchBonus: 1, trainingMult: 0.6, quitMult: 1 },
     counts: { employees: 7, drivers: 4, dispatchers: 2, trucks: 5, active: 4, completed: 38, bids: 3 },
-    suspended: false, nextPayroll: 2472, onRoster: true, onDuty: true,
+    suspended: false, nextPayroll: 2472, signs: 2, onRoster: true, onDuty: true,
   };
   dash.effects.maxEmployees = 9;
 

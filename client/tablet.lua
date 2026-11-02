@@ -47,6 +47,7 @@ local function uiConfig()
         hireFee = Config.NPC.hireFee,
         driverCommission = Config.Runs.driverCommission,
         perms = TCShared.Perms,
+        signs = { max = Config.Signs.max, price = Config.Signs.price },
     }
 end
 
@@ -131,6 +132,12 @@ end)
 RegisterNUICallback('nuiError', function(data, cb)
     print(('[truckco] tablet UI error: %s'):format(type(data) == 'table' and tostring(data.msg) or tostring(data)))
     cb(1)
+end)
+
+RegisterNUICallback('placeSigns', function(_, cb)
+    cb(1)
+    TCC.closeTablet()
+    TCC.startSignEditor()
 end)
 
 RegisterNUICallback('arrange', function(_, cb)

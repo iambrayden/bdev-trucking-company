@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS `truckco_companies` (
     `upgrades` LONGTEXT NULL,
     `settings` LONGTEXT NULL,
     `layout` LONGTEXT NULL,
+    `signs` LONGTEXT NULL,
     `last_payroll` INT NOT NULL DEFAULT 0,
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),

@@ -62,6 +62,7 @@ local function decodeCompany(row)
     row.upgrades = json.decode(row.upgrades or '{}') or {}
     row.settings = json.decode(row.settings or '{}') or {}
     row.layout = row.layout and json.decode(row.layout) or nil
+    row.signs = row.signs and json.decode(row.signs) or {}
     if row.settings.autoBid == nil then row.settings.autoBid = true end
     if row.settings.autoAssign == nil then row.settings.autoAssign = true end
     if row.settings.usePlayerDrivers == nil then row.settings.usePlayerDrivers = true end
