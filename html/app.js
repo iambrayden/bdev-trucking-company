@@ -564,9 +564,12 @@ VIEWS.driver = async () => {
   h += `<div class="card mt16"><h3>Assigned loads</h3>`;
   if (!list.length) h += empty('road', 'Nothing assigned to you right now.');
   else h += `<div class="list">${list.map((c) => `<div class="item"><div class="ic accent"><i class="fa-solid fa-${c.class === 'semi' ? 'trailer' : 'box'}"></i></div>
-      <div class="main"><div class="t">#${c.id} ${esc(c.cargoLabel)} → ${esc(c.dropoff.label)}</div><div class="d">Truck ${esc(c.truck_plate || '?')} • ${c.distance.toFixed(1)} km • due ${count(c.deadlineIn || 0, 'LATE')}</div></div>
+      <div class="main"><div class="t">#${c.id} ${esc(c.cargoLabel)}</div>
+        <div class="d"><i class="fa-solid fa-location-dot"></i> ${esc(c.pickup ? c.pickup.label : '?')} → <i class="fa-solid fa-flag-checkered"></i> ${esc(c.dropoff.label)} • ${c.distance.toFixed(1)} km</div>
+        <div class="d">${c.class === 'semi' ? 'Semi + trailer' : 'Box truck'} • ${esc(c.truck_label || '')} [${esc(c.truck_plate || '?')}] • contract ${money(c.award_amount)}${c.cut ? ` • your cut ${money(c.cut)}` : ''} • due ${count(c.deadlineIn || 0, 'LATE')}</div></div>
       ${c.active || c.status !== 'assigned' ? '<span class="chip accent">In progress</span>' : `<button class="btn primary" ${act(() => post('startRun', { id: c.id }))}><i class="fa-solid fa-play"></i>Start load</button>`}</div>`).join('')}</div>
-      <div class="muted small mt12"><i class="fa-solid fa-circle-info"></i> Your truck is pulled out at the company yard. Go outside before starting.</div>`;
+      <div class="banner blue mt12" style="margin-bottom:0"><i class="fa-solid fa-circle-info"></i><div><b>How it works:</b> go to the company yard and press <b>Start load</b>. Your truck spawns with a GPS route.
+        1) drive to the pickup${list.some((c) => c.class === 'semi') ? ' and back under the trailer to hook it' : ' and press E to load'}, 2) deliver to the drop-off and press E, 3) bring the truck back to the yard. The panel on the right shows each step.</div></div>`;
   h += `</div><button class="btn danger mt16" ${act(async () => { if (await confirmBox('Leave the company', 'Quit your job? Any waiting paycheck is paid out.', 'Quit', true)) { const r = await call('quitCompany'); toast(r.msg, r.ok); if (r.ok) post('companyGone'); } })}><i class="fa-solid fa-door-open"></i>Leave the company</button>`;
   return h;
 };
@@ -635,8 +638,26 @@ async function open(msg) {
   await render();
 }
 
+function renderHud(d) {
+  const el = $('#hud');
+  if (!d) { el.classList.add('hidden'); return; }
+  const cur = d.currency || '$';
+  const m = (n) => (n == null ? '—' : cur + Math.floor(n).toLocaleString('en-US'));
+  const dist = d.distance >= 1000 ? (d.distance / 1000).toFixed(1) + ' km' : Math.round(d.distance) + ' m';
+  el.innerHTML = `<div class="h-top"><span><i class="fa-solid fa-truck-fast"></i> Load #${d.id} • ${esc(d.cargo)}</span><span>Step ${d.stepNo}/3</span></div>
+    <div class="h-step">${esc(d.step)}</div>
+    <div class="h-steps">${[1, 2, 3].map((i) => `<span class="${i <= d.stepNo ? 'on' : ''}"></span>`).join('')}</div>
+    <div class="h-row">Distance <b>${dist}</b></div>
+    <div class="h-row">Route <b>${esc(d.from || '')} → ${esc(d.to || '')}</b></div>
+    ${d.deadline != null ? `<div class="h-row">Time left <b class="${d.late ? 'late' : ''}">${d.late ? 'LATE' : dur(d.deadline)}</b></div>` : ''}
+    <div class="h-row">Contract <b>${m(d.pay)}${d.cut ? ` • your cut ${m(d.cut)}` : ''}</b></div>
+    <div class="h-foot">Follow the GPS • /truckload to reset it • /truckco_cancel to abandon</div>`;
+  el.classList.remove('hidden');
+}
+
 window.addEventListener('message', (e) => {
   const msg = e.data || {};
+  if (msg.action === 'hud') renderHud(msg.data);
   if (msg.action === 'open') open(msg);
   if (msg.action === 'close') { $('#root').classList.add('hidden'); $('#modal').classList.add('hidden'); }
 });

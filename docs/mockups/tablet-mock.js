@@ -125,7 +125,7 @@
     getMyContracts: () => ({ ok: true, data: loads }),
     getAssignOptions: () => ({ ok: true, data: { drivers: [employees[3], employees[4]], trucks: [fleet[1]] } }),
     getLedger: () => ({ ok: true, data: ledger }),
-    getMyAssignments: () => ({ ok: true, data: { pending: 2400, onDuty: true, list: [{ id: 141, cargoLabel: 'Timber', class: 'semi', dropoff: loc('Paleto Bay Sawmill'), distance: 12.7, truck_plate: 'TC930041', deadlineIn: 1300, status: 'assigned' }] } }),
+    getMyAssignments: () => ({ ok: true, data: { pending: 2400, onDuty: true, list: [{ id: 141, cargoLabel: 'Timber', class: 'semi', pickup: loc('Port of LS - Lot B'), dropoff: loc('Paleto Bay Sawmill'), distance: 12.7, truck_plate: 'TC930041', truck_label: 'JoBuilt Hauler', award_amount: 5400, cut: 810, deadlineIn: 1300, status: 'assigned' }] } }),
   };
 
   window.TC_MOCK = {

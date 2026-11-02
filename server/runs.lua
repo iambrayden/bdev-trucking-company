@@ -86,6 +86,8 @@ lib.callback.register('truckco:server:getMyAssignments', function(src)
         c.market_bid = nil
         c.deadlineIn = c.deadline and (c.deadline - now)
         c.active = TC.runs[c.id] ~= nil
+        c.cut = company.owner ~= emp.citizenid and math.floor((c.award_amount or 0) * Config.Runs.driverCommission) or 0
+        c.truck_label = c.truck_model and Config.Trucks[c.truck_model] and Config.Trucks[c.truck_model].label or c.truck_model
     end
     return TC.result(true, nil, { list = rows, pending = emp.pending_pay, onDuty = TC.onDuty[emp.citizenid] ~= nil })
 end)
@@ -142,6 +144,9 @@ lib.callback.register('truckco:server:startPlayerRun', function(src, contractId)
         pickup = c.pickup,
         dropoff = c.dropoff,
         returnPoint = TC.propPoint(company.property, 'truckReturn', company),
+        pay = c.award_amount,
+        cut = company.owner ~= emp.citizenid and math.floor((c.award_amount or 0) * Config.Runs.driverCommission) or 0,
+        distance = c.distance,
         deadline = c.deadline and (c.deadline - now),
         plate = truck.plate,
     })
@@ -324,6 +329,8 @@ lib.callback.register('truckco:server:getActiveRun', function(src)
                 contractId = id, truckNet = run.truckNet, trailerNet = run.trailerNet, class = run.class,
                 trailer = c.trailer, cargo = c.cargoLabel, pickup = c.pickup, dropoff = c.dropoff, stage = run.stage,
                 returnPoint = TC.propPoint(company.property, 'truckReturn', company),
+                pay = c.award_amount, distance = c.distance,
+                cut = company.owner ~= run.cid and math.floor((c.award_amount or 0) * Config.Runs.driverCommission) or 0,
                 deadline = c.deadline and (c.deadline - TC.now()),
             })
         end
@@ -356,4 +363,11 @@ function TC.tickPlayerRuns()
             TC.abandonRun(run, 'truck not returned')
         end
     end
+end
+
+--- The assigned (not yet started) load for a player, if any.
+function TC.assignedLoadFor(src)
+    local company, emp = myEmployee(src)
+    if not emp then return nil end
+    return MySQL.scalar.await("SELECT id FROM truckco_contracts WHERE employee_id = ? AND status = 'assigned' ORDER BY deadline ASC LIMIT 1", { emp.id })
 end

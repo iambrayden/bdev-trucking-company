@@ -28,7 +28,7 @@ const TABLET = [
   const root = path.join(dir, '..', '..');
   const out = path.join(dir, '..', 'screenshots');
   fs.mkdirSync(out, { recursive: true });
-  for (const f of fs.readdirSync(out)) if (f.endsWith('.jpg')) fs.unlinkSync(path.join(out, f));
+  for (const f of fs.readdirSync(out)) if (f.endsWith('.jpg') && f !== '17-job-panel.jpg') fs.unlinkSync(path.join(out, f));
 
   const browser = await chromium.launch();
   const mock = fs.readFileSync(path.join(dir, 'tablet-mock.js'), 'utf8');

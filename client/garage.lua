@@ -40,6 +40,8 @@ local function setup()
         radius = 2.5,
         debug = Config.Debug,
         options = {
+            { name = 'truckco_myloads', icon = 'fa-solid fa-route', label = 'My loads (start a delivery)',
+              onSelect = function() TCC.openTablet('driver') end },
             { name = 'truckco_garage', icon = 'fa-solid fa-warehouse', label = 'Company garage',
               onSelect = function() TCC.openTablet('fleet') end },
             { name = 'truckco_garage_park', icon = 'fa-solid fa-square-parking', label = 'Park company truck',
@@ -70,7 +72,12 @@ local function setup()
 end
 
 function TCC.takeOutTruck(truckId)
-    local res = TCC.call('takeOutTruck', truckId)
+    local res = lib.callback.await('truckco:server:takeOutTruck', false, truckId) or {}
+    if res.data and res.data.startLoad then
+        TCC.notify('You have a load assigned. Starting it now with its truck.', 'inform')
+        return TCC.startRun(res.data.startLoad)
+    end
+    if res.msg then TCC.notify(res.msg, res.ok and 'success' or 'error') end
     if res.ok and res.data then
         outNet = res.data.netId
         if not zoneId then setup() end

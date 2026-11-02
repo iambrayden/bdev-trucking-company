@@ -50,6 +50,11 @@ lib.callback.register('truckco:server:takeOutTruck', function(src, truckId)
     if not canUse(role) then return TC.result(false, 'Your role cannot take trucks out of the garage.') end
     if TC.inside[src] then return TC.result(false, 'Head outside to the yard first.') end
     if TC.garageOutFor(src) then return TC.result(false, 'You already have a company truck out. Park it first.') end
+    -- a driver with an assigned load gets that load (right truck + route), not a plain truck
+    local assigned = TC.assignedLoadFor and TC.assignedLoadFor(src)
+    if assigned then
+        return TC.result(false, nil, { startLoad = assigned })
+    end
     for _, r in pairs(TC.runs) do
         if r.src == src then return TC.result(false, 'You are already on a load.') end
     end

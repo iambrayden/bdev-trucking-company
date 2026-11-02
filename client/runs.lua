@@ -4,6 +4,7 @@ local textShown = nil
 
 local function setBlip(coords, label, sprite, color)
     if blip then RemoveBlip(blip) end
+    SetNewWaypoint(coords.x, coords.y) -- GPS waypoint as well as the blip route
     blip = AddBlipForCoord(coords.x, coords.y, coords.z)
     SetBlipSprite(blip, sprite or 1)
     SetBlipColour(blip, color or 5)
@@ -20,10 +21,48 @@ local function text(msg)
     textShown = msg
 end
 
+--------------------------------------------------------------------------------
+-- On-screen job panel (rendered by the tablet NUI page, without focus)
+--------------------------------------------------------------------------------
+local function stepInfo()
+    if not run then return nil end
+    if run.stage == 'pickup' then
+        return run.pickup, run.class == 'semi'
+            and ('Drive to %s and hook up the trailer'):format(run.pickup.label)
+            or ('Drive to %s and load the cargo (E)'):format(run.pickup.label), 1
+    elseif run.stage == 'dropoff' then
+        return run.dropoff, run.class == 'semi'
+            and ('Deliver the trailer to %s'):format(run.dropoff.label)
+            or ('Deliver the cargo to %s'):format(run.dropoff.label), 2
+    elseif run.stage == 'return' then
+        return run.returnPoint, 'Bring the truck back to the yard', 3
+    end
+end
+
+local function hud()
+    local target, step, n = stepInfo()
+    if not target then return SendNUIMessage({ action = 'hud', data = false }) end
+    local dist = #(GetEntityCoords(cache.ped) - vec3(target.x, target.y, target.z))
+    SendNUIMessage({ action = 'hud', data = {
+        id = run.contractId, cargo = run.cargo, step = step, stepNo = n,
+        distance = dist, deadline = run.deadlineAt and math.max(0, run.deadlineAt - GetGameTimer() // 1000) or nil,
+        late = run.deadlineAt and (GetGameTimer() // 1000) > run.deadlineAt,
+        from = run.pickup and run.pickup.label, to = run.dropoff and run.dropoff.label,
+        pay = run.pay, cut = run.cut, plate = run.plate, currency = Config.Currency,
+    } })
+end
+
+CreateThread(function()
+    while true do
+        if run then hud() Wait(1000) else Wait(1500) end
+    end
+end)
+
 local function cleanup()
     if blip then RemoveBlip(blip) blip = nil end
     text(nil)
     run = nil
+    SendNUIMessage({ action = 'hud', data = false })
 end
 
 local function waitForEntity(netId, timeoutMs)
@@ -44,12 +83,14 @@ end
 local function stageBlip()
     if run.stage == 'pickup' then
         setBlip(run.pickup, ('Pickup: %s'):format(run.cargo), 478, 5)
-        TCC.notify(('Head to %s to collect %s.'):format(run.pickup.label, run.cargo), 'inform')
     elseif run.stage == 'dropoff' then
         setBlip(run.dropoff, ('Deliver: %s'):format(run.dropoff.label), 479, 2)
     elseif run.stage == 'return' then
         setBlip(run.returnPoint, 'Return truck', 477, 3)
     end
+    local _, step = stepInfo()
+    if step then TCC.notify(step .. '. Follow the GPS.', 'inform') end
+    hud()
 end
 
 local function trailerAttached(truck, trailer)
@@ -184,15 +225,15 @@ end
 
 local function begin(data)
     run = data
+    if run.deadline then run.deadlineAt = GetGameTimer() // 1000 + run.deadline end
     local truck = waitForEntity(run.truckNet, 10000)
     if not truck then
         TCC.notify('Your truck did not arrive. Use /truckco_cancel if this persists.', 'error')
     else
         SetVehicleEngineOn(truck, true, true, false)
     end
-    if run.deadline then
-        TCC.notify(('Deadline: %s. Late deliveries pay less.'):format(TCShared.duration(run.deadline)), 'warning')
-    end
+    TCC.notify(('Load #%d: %s from %s to %s (%.1f km).%s'):format(run.contractId, run.cargo, run.pickup.label, run.dropoff.label,
+        run.distance or 0, run.deadline and (' Due in ' .. TCShared.duration(run.deadline) .. '.') or ''), 'inform')
     stageBlip()
     loop()
 end
@@ -204,9 +245,23 @@ function TCC.startRun(contractId)
     if res.ok and res.data then begin(res.data) end
 end
 
-RegisterNetEvent('truckco:client:newAssignment', function(contractId)
+RegisterNetEvent('truckco:client:newAssignment', function(a)
     PlaySoundFrontend(-1, 'Text_Arrive_Tone', 'Phone_SoundSet_Default', true)
+    if type(a) ~= 'table' then return end
+    lib.notify({
+        title = ('%s: new load #%d'):format(a.company or 'Dispatch', a.id),
+        description = ('**%s**  \nFrom: %s  \nTo: %s (%.1f km)  \nTruck: %s%s  \n\nGo to the company yard and start it: /truckjob (or the Company garage).'):format(
+            a.cargo, a.pickup, a.dropoff, a.distance or 0, a.plate or '?',
+            a.deadline and ('  \nDue in ' .. TCShared.duration(a.deadline)) or ''),
+        type = 'inform', duration = 15000, icon = 'truck-fast',
+    })
 end)
+
+-- re-show the current step and reset the GPS
+RegisterCommand('truckload', function()
+    if not run then return TCC.notify('You are not on a load. Check /truckjob for assigned loads.', 'inform') end
+    stageBlip()
+end, false)
 
 RegisterNetEvent('truckco:client:runEnded', function()
     cleanup()

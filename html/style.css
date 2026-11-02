@@ -182,3 +182,16 @@ table.ledger td.when { color: var(--dim); white-space: nowrap; width: 110px; }
 .toast.err { border-left-color: var(--red); }
 @keyframes drop { from { transform: translateY(-10px); opacity: 0; } to { transform: none; opacity: 1; } }
 .spin { text-align: center; padding: 60px; color: var(--dim); }
+
+/* ---------- on-screen job panel (no focus) ---------- */
+#hud { position: fixed; right: 22px; top: 38%; width: 330px; background: rgba(19, 21, 26, .92); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+  border-radius: 12px; padding: 14px 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); font-size: 13px; }
+#hud .h-top { display: flex; justify-content: space-between; align-items: center; color: var(--dim); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; }
+#hud .h-step { font-size: 15px; font-weight: 700; margin: 8px 0 10px; line-height: 1.35; }
+#hud .h-steps { display: flex; gap: 5px; margin-bottom: 10px; }
+#hud .h-steps span { flex: 1; height: 5px; border-radius: 3px; background: #2a2f39; }
+#hud .h-steps span.on { background: var(--accent); }
+#hud .h-row { display: flex; justify-content: space-between; padding: 3px 0; color: var(--dim); }
+#hud .h-row b { color: var(--text); font-weight: 600; text-align: right; }
+#hud .late { color: var(--red) !important; }
+#hud .h-foot { margin-top: 8px; color: var(--mute); font-size: 11px; }

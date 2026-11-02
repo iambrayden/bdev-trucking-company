@@ -257,9 +257,12 @@ function TC.assign(company, contract, driver, truck, by)
         { driver.id, truck.id, by, contract.id })
     local s = TC.sourceByCid(driver.citizenid)
     if s then
-        TC.notify(s, ('New load #%d: %s from %s to %s. Truck %s is waiting at the yard. Start it from the office time clock or /truckjob.'):format(
-            contract.id, contract.cargoLabel, contract.pickup.label, contract.dropoff.label, truck.plate), 'inform', company.name)
-        TriggerClientEvent('truckco:client:newAssignment', s, contract.id)
+        TriggerClientEvent('truckco:client:newAssignment', s, {
+            id = contract.id, cargo = contract.cargoLabel, pickup = contract.pickup.label, dropoff = contract.dropoff.label,
+            distance = contract.distance, plate = truck.plate, company = company.name,
+            pay = contract.award_amount,
+            deadline = contract.deadline and (contract.deadline - TC.now()),
+        })
     end
     return true, ('Load #%d assigned to %s.'):format(contract.id, driver.name)
 end
