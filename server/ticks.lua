@@ -77,7 +77,7 @@ end)
 CreateThread(function()
     Wait(2000)
     local missing = {}
-    for fn, file in pairs({ propPoint = 'server/places.lua', cadRegisterTruck = 'server/cad.lua', startNpcRun = 'server/runs.lua', tickDispatch = 'server/dispatch.lua' }) do
+    for fn, file in pairs({ propPoint = 'server/places.lua', cadRegisterTruck = 'server/cad.lua', startNpcRun = 'server/runs.lua', tickDispatch = 'server/dispatch.lua', loanPayroll = 'server/finance.lua', garageOutFor = 'server/garage.lua' }) do
         if type(TC[fn]) ~= 'function' then missing[#missing + 1] = file end
     end
     if #missing > 0 then

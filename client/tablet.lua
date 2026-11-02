@@ -180,7 +180,18 @@ RegisterNUICallback('call', function(data, cb)
         return cb({ ok = false, msg = 'Not allowed.' })
     end
     local args = type(data.args) == 'table' and data.args or {}
-    local res = lib.callback.await('truckco:server:' .. data.name, false, table.unpack(args, 1, #args))
+    -- never let one call hang the tablet: give up after 10s
+    local p, done = promise.new(), false
+    local function finish(v) if not done then done = true p:resolve(v) end end
+    CreateThread(function()
+        local ok, r = pcall(lib.callback.await, 'truckco:server:' .. data.name, false, table.unpack(args, 1, #args))
+        finish(ok and r or { ok = false, msg = 'Request failed: ' .. tostring(r) })
+    end)
+    SetTimeout(10000, function()
+        if not done then print(('[truckco] tablet call %s timed out (is the server file that handles it loaded?)'):format(data.name)) end
+        finish({ ok = false, msg = ('Server did not answer (%s). Check the server console for truckco errors.'):format(data.name) })
+    end)
+    local res = Citizen.Await(p)
     if data.name == 'buyProperty' and res and res.ok then
         CreateThread(function() TCC.closeTablet() end)
     end

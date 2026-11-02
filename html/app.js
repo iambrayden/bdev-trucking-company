@@ -237,7 +237,9 @@ VIEWS.finance = async () => {
     h += `</div>`;
   }
   const lr = await call('getLoans');
-  if (lr.ok) {
+  if (!lr.ok) {
+    h += `<div class="card mt12"><h3>Business loans</h3><div class="muted small">${esc(lr.msg || 'Loans are unavailable right now.')}</div></div>`;
+  } else {
     const L = lr.data;
     const loans = arr(L.loans);
     h += `<div class="card mt12"><h3>Business loans <span class="chip">${Math.round(L.interest * 100)}% • ${L.installments} payrolls</span></h3>`;
@@ -276,6 +278,7 @@ VIEWS.finance = async () => {
   if (can('finance')) {
     const res = await call('getLedger');
     const rows = res.ok ? arr(res.data) : [];
+    if (!res.ok) toast(res.msg || 'Could not load the ledger.', false);
     h += `<div class="card"><h3>Ledger <span class="chip">last ${rows.length}</span></h3>`;
     h += rows.length ? `<table class="ledger">${rows.map((r) => `<tr><td class="when">${esc(r.ts)}</td><td>${esc(r.reason)}</td><td class="amt ${r.amount >= 0 ? 'pos' : 'negc'}">${r.amount >= 0 ? '+' : ''}${money(r.amount)}</td></tr>`).join('')}</table>` : empty('receipt', 'No transactions yet.');
     h += `</div>`;

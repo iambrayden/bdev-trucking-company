@@ -9,6 +9,24 @@ TC = {
     runs = {},        -- [contractId] = active player run
 }
 
+-- Safety net: every truckco server callback is wrapped so a Lua error returns an
+-- error result to the client (instead of leaving the tablet waiting forever)
+-- and prints the real error in the server console.
+do
+    local register = lib.callback.register
+    lib.callback.register = function(name, fn)
+        if type(name) ~= 'string' or not name:find('^truckco:') or type(fn) ~= 'function' then
+            return register(name, fn)
+        end
+        return register(name, function(...)
+            local results = table.pack(pcall(fn, ...))
+            if results[1] then return table.unpack(results, 2, results.n) end
+            print(('^1[truckco] callback %s failed: %s^0'):format(name, tostring(results[2])))
+            return { ok = false, msg = 'Server error (' .. name:gsub('^truckco:server:', '') .. '). Check the server console.' }
+        end)
+    end
+end
+
 function TC.now() return os.time() end
 
 function TC.log(...)
