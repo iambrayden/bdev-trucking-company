@@ -6,8 +6,10 @@ local function propertyState()
     local owned = {}
     for _, r in ipairs(rows) do owned[r.property] = { companyId = r.id, name = r.name } end
     local out = {}
+    local entrances = TC.entrances()
     for id, prop in pairs(Config.Properties) do
         out[id] = {
+            entrance = entrances[id],
             owned = owned[id] ~= nil,
             companyId = owned[id] and owned[id].companyId,
             name = owned[id] and owned[id].name or prop.label,
@@ -41,7 +43,7 @@ lib.callback.register('truckco:server:buyProperty', function(src, propertyId, na
 
     local player = TC.getPlayer(src)
     if not player then return TC.result(false, 'Player not loaded.') end
-    if TC.distance(GetEntityCoords(GetPlayerPed(src)), prop.entrance) > 15.0 then
+    if TC.distance(GetEntityCoords(GetPlayerPed(src)), TC.propPoint(propertyId, 'entrance')) > 15.0 then
         return TC.result(false, 'You need to be at the property.')
     end
     if TC.getMembership(src) then
@@ -116,7 +118,7 @@ lib.callback.register('truckco:server:enterOffice', function(src, propertyId)
     if not companyId then return TC.result(false, 'This property is for sale.') end
     local company, role = TC.getMembership(src)
     if not company or company.id ~= companyId then return TC.result(false, 'The door is locked. Staff only.') end
-    if TC.distance(GetEntityCoords(GetPlayerPed(src)), prop.entrance) > 10.0 then
+    if TC.distance(GetEntityCoords(GetPlayerPed(src)), TC.propPoint(propertyId, 'entrance')) > 10.0 then
         return TC.result(false, 'Too far from the door.')
     end
     TC.inside[src] = propertyId
@@ -124,7 +126,7 @@ lib.callback.register('truckco:server:enterOffice', function(src, propertyId)
     return TC.result(true, nil, {
         interior = prop.interior,
         upgrades = company.upgrades,
-        layout = TC.layoutFor(company),
+        layout = TC.officeLayout(company),
         role = role,
         name = company.name,
     })
@@ -227,7 +229,7 @@ lib.callback.register('truckco:server:buyUpgrade', function(src, key)
     -- refresh furniture for everyone currently inside
     for s, propId in pairs(TC.inside) do
         if propId == company.property then
-            TriggerClientEvent('truckco:client:refreshFurniture', s, company.upgrades, TC.layoutFor(company))
+            TriggerClientEvent('truckco:client:refreshFurniture', s, company.upgrades, TC.officeLayout(company))
         end
     end
     return TC.result(true, ('%s upgraded to level %d.'):format(up.label, lvl + 1))
@@ -249,43 +251,36 @@ end)
 --------------------------------------------------------------------------------
 -- Office furniture layout (saved per company, per interior)
 --------------------------------------------------------------------------------
-function TC.layoutFor(company)
-    local prop = Config.Properties[company.property]
-    local l = company.layout
-    if type(l) == 'table' and prop and l.interior == prop.interior and type(l.items) == 'table' then
-        return l.items
-    end
-    return nil
-end
-
 local function num(v, lo, hi)
     v = tonumber(v)
     if not v or v ~= v or v == math.huge or v == -math.huge then return nil end
     return math.floor(TCShared.clamp(v, lo, hi) * 100 + 0.5) / 100
 end
 
+--- Validate a furniture layout { [key] = {x,y,z,h} } from a client. Returns clean table or nil.
+function TC.cleanLayoutItems(items)
+    if type(items) ~= 'table' then return nil end
+    local clean, count = {}, 0
+    for key, t in pairs(items) do
+        count = count + 1
+        if count > 100 or type(key) ~= 'string' or #key > 64 or type(t) ~= 'table' then return nil end
+        local x, y, z, h = num(t.x, -60, 60), num(t.y, -60, 60), num(t.z, 0, 10), num(t.h, -720, 720)
+        if not (x and y and z and h) then return nil end
+        clean[key] = { x = x, y = y, z = z, h = h % 360 }
+    end
+    return clean
+end
+
 lib.callback.register('truckco:server:saveLayout', function(src, items)
     local company, err = TC.authorize(src, 'upgrades')
     if not company then return TC.result(false, err) end
     if TC.inside[src] ~= company.property then return TC.result(false, 'You need to be inside the office.') end
-    if type(items) ~= 'table' then return TC.result(false, 'Invalid layout.') end
-    local clean, count = {}, 0
-    for key, t in pairs(items) do
-        count = count + 1
-        if count > 100 then return TC.result(false, 'Too many items.') end
-        if type(key) ~= 'string' or #key > 64 or type(t) ~= 'table' then return TC.result(false, 'Invalid layout.') end
-        local x, y, z, h = num(t.x, -60, 60), num(t.y, -60, 60), num(t.z, 0, 10), num(t.h, -720, 720)
-        if not (x and y and z and h) then return TC.result(false, 'Invalid layout.') end
-        clean[key] = { x = x, y = y, z = z, h = h % 360 }
-    end
-    local prop = Config.Properties[company.property]
-    company.layout = { interior = prop.interior, items = clean }
-    MySQL.update.await('UPDATE truckco_companies SET layout = ? WHERE id = ?', { json.encode(company.layout), company.id })
-    for s, propId in pairs(TC.inside) do
-        if s ~= src and propId == company.property then
-            TriggerClientEvent('truckco:client:refreshFurniture', s, company.upgrades, clean)
-        end
-    end
+    local clean = TC.cleanLayoutItems(items)
+    if not clean then return TC.result(false, 'Invalid layout.') end
+    local l = TC.companyLayoutTable(company)
+    l.items = clean
+    MySQL.update.await('UPDATE truckco_companies SET layout = ? WHERE id = ?', { json.encode(l), company.id })
+    TC.refreshOffice(company)
     return TC.result(true, 'Office layout saved.')
 end)
 
@@ -322,7 +317,8 @@ end)
 lib.callback.register('truckco:server:getSignEditor', function(src)
     local company, err = TC.authorize(src, 'upgrades')
     if not company then return TC.result(false, err) end
-    return TC.result(true, nil, { companyId = company.id, name = company.name, property = company.property, items = company.signs or {} })
+    local e = TC.propPoint(company.property, 'entrance')
+    return TC.result(true, nil, { companyId = company.id, name = company.name, property = company.property, items = company.signs or {}, entrance = { x = e.x, y = e.y, z = e.z } })
 end)
 
 lib.callback.register('truckco:server:saveSigns', function(src, items)
@@ -337,7 +333,7 @@ lib.callback.register('truckco:server:saveSigns', function(src, items)
         local it = items[i]
         local x, y, z, h = tonumber(it and it.x), tonumber(it and it.y), tonumber(it and it.z), tonumber(it and it.h)
         if not (x and y and z and h) then return TC.result(false, 'Invalid sign.') end
-        if TC.distance(vec3(x, y, z), prop.entrance) > Config.Signs.radius + 2.0 then
+        if TC.distance(vec3(x, y, z), TC.propPoint(company.property, 'entrance')) > Config.Signs.radius + 2.0 then
             return TC.result(false, 'Signs must stay near your depot.')
         end
         clean[i] = {

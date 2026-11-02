@@ -102,11 +102,12 @@ lib.callback.register('truckco:server:startPlayerRun', function(src, contractId)
     local prop = Config.Properties[company.property]
     if not truck or not prop then return TC.result(false, 'Truck missing.') end
     if TC.inside[src] then return TC.result(false, 'Head outside to the yard first.') end
-    if TC.distance(GetEntityCoords(GetPlayerPed(src)), prop.truckSpawn) > 60.0 then
+    local truckSpawn = TC.propPoint(company.property, 'truckSpawn', company)
+    if TC.distance(GetEntityCoords(GetPlayerPed(src)), truckSpawn) > 60.0 then
         return TC.result(false, 'Go to the company yard to pick up your truck.')
     end
 
-    local netId, veh = TC.spawnVehicle(truck.model, prop.truckSpawn, { plate = truck.plate }, GetPlayerPed(src))
+    local netId, veh = TC.spawnVehicle(truck.model, truckSpawn, { plate = truck.plate }, GetPlayerPed(src))
     if not netId then return TC.result(false, 'Could not pull the truck out. Is the spot blocked?') end
     SetVehicleNumberPlateText(veh, truck.plate)
     Config.SetFuel(veh)
@@ -139,7 +140,7 @@ lib.callback.register('truckco:server:startPlayerRun', function(src, contractId)
         cargo = c.cargoLabel,
         pickup = c.pickup,
         dropoff = c.dropoff,
-        returnPoint = prop.truckReturn,
+        returnPoint = TC.propPoint(company.property, 'truckReturn', company),
         deadline = c.deadline and (c.deadline - now),
         plate = truck.plate,
     })
@@ -269,7 +270,7 @@ lib.callback.register('truckco:server:returnTruck', function(src, contractId)
     local company = TC.getCompany(run.companyId)
     local prop = company and Config.Properties[company.property]
     local truckEnt = TC.entityFromNet(run.truckNet)
-    if not prop or not truckEnt or TC.distance(GetEntityCoords(truckEnt), prop.truckReturn) > 25.0 then
+    if not prop or not truckEnt or TC.distance(GetEntityCoords(truckEnt), TC.propPoint(company.property, 'truckReturn', company)) > 25.0 then
         return TC.result(false, 'Park the truck at the yard return spot.')
     end
     MySQL.update.await("UPDATE truckco_contracts SET status = 'completed' WHERE id = ?", { contractId })
@@ -321,7 +322,7 @@ lib.callback.register('truckco:server:getActiveRun', function(src)
             return TC.result(true, nil, {
                 contractId = id, truckNet = run.truckNet, trailerNet = run.trailerNet, class = run.class,
                 trailer = c.trailer, cargo = c.cargoLabel, pickup = c.pickup, dropoff = c.dropoff, stage = run.stage,
-                returnPoint = Config.Properties[company.property].truckReturn,
+                returnPoint = TC.propPoint(company.property, 'truckReturn', company),
                 deadline = c.deadline and (c.deadline - TC.now()),
             })
         end

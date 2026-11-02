@@ -56,8 +56,12 @@ Buy a depot down by the docks, build out the empty office shell, hire staff (NPC
 1. Drop the folder into your resources, e.g. `resources/[jobs]/bdev-trucking-company`.
 2. Add `ensure bdev-trucking-company` to `server.cfg` **after** qbx_core, ox_lib, oxmysql and ox_target.
 3. Start the server. Tables are created automatically from `sql/install.sql`, or you can run that file yourself.
-4. **Set the office exit (admin).** Inside an office run `/truckco_furnish` → *Set exit at my feet* while standing on the door, and paste the line into `config.lua`. The same menu can arrange the *default* furniture for every company and copy the config lines.
-5. **Check the coordinates in `config.lua`.** The depot entrances, truck spawns, pickup lots and destinations are sensible defaults, but you should check them on your map (especially if you run dock MLOs). Stand where you want a point and use `/truckco_pos` (admin) to copy a `vec4`.
+4. **Set things up in-game; no config editing needed.** As an admin, run `/truckco_furnish`:
+   - **Outside, near a depot:** move the depot entrance, and set the default truck pickup and return spots, all where you're standing.
+   - **Inside an office:** arrange the default furniture, and set the default exit door, arrival point and time clock.
+
+   Everything saves to the database. Owners can still customise their own office from the tablet.
+5. **Optional:** the coordinates in `config.lua` are only the fallback. The depot entrances, truck spawns, pickup lots and destinations are sensible defaults, but you should check them on your map (especially if you run dock MLOs). Stand where you want a point and use `/truckco_pos` (admin) to copy a `vec4`.
 
 ## How to play
 
@@ -80,7 +84,7 @@ Buy a depot down by the docks, build out the empty office shell, hire staff (NPC
 | `/truckboard` | staff | Tablet → Bid board |
 | `/truckco_cancel` | driver | Abandon the current load (recovery fee) |
 | `/truckco_pos` | admin | Copy your current `vec4` for config |
-| `/truckco_furnish` | admin | Inside an office: set exit / spawn spots and arrange furniture for the **config defaults** (copies config lines) |
+| `/truckco_furnish` | admin | In-game defaults saved to the database. Outside: move a depot entrance, set truck pickup/return. Inside: default furniture, exit, arrival point, time clock |
 | `/truckco_board [n]` | admin | Force-generate contracts |
 | `/truckco_cadsync` | admin | Register all existing company trucks in Imperial CAD |
 | `/truckco_givefunds <companyId> <amount>` | admin | Adjust a company balance |
@@ -109,9 +113,18 @@ Everything economic lives in `config.lua`:
 - `Config.Payroll`: payroll interval, overdraft limit, whether player wages need clocking in.
 - `Config.Upgrades`: office upgrades and their effects. The matching furniture props are in `Config.Interiors[...].furniture`.
 
-### Arranging the office
+### Arranging the office (in-game, no config)
 
-Owners and managers can move their own furniture: tablet → **Office** → **Arrange furniture**. The layout is saved for the company and loads for everyone who enters.
+Owners and managers set up their own depot from tablet → **Office** → **Office setup**:
+
+- **Inside:** *Arrange furniture*, and set the **exit door**, **arrival point** and **time clock** where you're standing. *Reset to default* puts everything back.
+- **Outside:** set the **truck pickup spot** (sit in a vehicle to use its position and facing) and the **truck return spot** where you're standing.
+
+Everything is saved for the company and applies right away for everyone inside.
+
+Positions resolve as: **company choice → admin default (set with `/truckco_furnish`, stored in the database) → `config.lua`**.
+
+Furniture editor keys:
 
 | Key | Action |
 |---|---|
@@ -144,7 +157,7 @@ With `Config.ImperialCAD.enabled = true` and the `ImperialCAD` resource running,
 
 ### Leaving the office
 
-Walk to the orange door marker (by default it's where you arrive) and press **E**. You can also use the ox_target spot there, or *Leave office* on the tablet. Move the exit onto the actual door with `/truckco_furnish` → *Set exit at my feet*.
+Walk to the orange door marker and press **E**. You can also use the ox_target spot there, or *Leave office* on the tablet. Move the exit onto the actual door with tablet → Office → *Exit door → Set here* (or `/truckco_furnish` for everyone's default).
 
 ### Using a shell instead of a vanilla interior
 

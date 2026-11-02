@@ -105,3 +105,9 @@ CREATE TABLE IF NOT EXISTS `truckco_ledger` (
     KEY `idx_company` (`company_id`),
     CONSTRAINT `fk_ledger_company` FOREIGN KEY (`company_id`) REFERENCES `truckco_companies` (`id`) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS `truckco_settings` (
+    `k` VARCHAR(96) NOT NULL,
+    `v` LONGTEXT NOT NULL,
+    PRIMARY KEY (`k`)
+);

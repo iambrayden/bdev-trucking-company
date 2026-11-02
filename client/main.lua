@@ -19,6 +19,14 @@ function TCC.call(name, ...)
     return res
 end
 
+--- Effective depot entrance (admins can move it in-game; falls back to config).
+function TCC.entrance(id)
+    local st = TCC.properties[id]
+    local e = st and st.entrance
+    if e and e.x then return vec4(e.x, e.y, e.z, e.w or 0.0) end
+    return Config.Properties[id].entrance
+end
+
 function TCC.confirm(header, content)
     return lib.alertDialog({ header = header, content = content, centered = true, cancel = true }) == 'confirm'
 end
@@ -31,7 +39,8 @@ local function refreshBlips()
     TCC.blips = {}
     for id, prop in pairs(Config.Properties) do
         local st = TCC.properties[id] or {}
-        local blip = AddBlipForCoord(prop.entrance.x, prop.entrance.y, prop.entrance.z)
+        local e = TCC.entrance(id)
+        local blip = AddBlipForCoord(e.x, e.y, e.z)
         SetBlipSprite(blip, 477) -- truck
         SetBlipScale(blip, 0.8)
         SetBlipColour(blip, st.owned and 5 or 2)
@@ -56,7 +65,7 @@ local function setupZones()
     TCC.zones = {}
     for id, prop in pairs(Config.Properties) do
         TCC.zones[#TCC.zones + 1] = exports.ox_target:addSphereZone({
-            coords = prop.entrance.xyz,
+            coords = TCC.entrance(id).xyz,
             radius = 1.5,
             debug = Config.Debug,
             options = {
@@ -86,15 +95,18 @@ local function setupZones()
     end
 end
 
+local zonesReady = false
 RegisterNetEvent('truckco:client:properties', function(state)
     TCC.properties = state or {}
     refreshBlips()
+    if zonesReady then setupZones() end -- entrances may have moved
 end)
 
 local function init()
     TCC.properties = lib.callback.await('truckco:server:getProperties', false) or {}
     refreshBlips()
     setupZones()
+    zonesReady = true
     if TCC.onLoaded then TCC.onLoaded() end
 end
 

@@ -32,6 +32,7 @@ MySQL.ready(function() CreateThread(function()
     MySQL.update.await("UPDATE truckco_contracts SET status = 'awarded', employee_id = NULL, truck_id = NULL, started_at = NULL, driver_kind = NULL WHERE status IN ('assigned','in_progress') AND driver_kind = 'player'")
     MySQL.update.await("UPDATE truckco_trucks t LEFT JOIN truckco_contracts c ON c.truck_id = t.id AND c.status IN ('assigned','in_progress') SET t.status = 'available' WHERE t.status IN ('in_use','reserved') AND c.id IS NULL")
     MySQL.update.await("UPDATE truckco_employees e LEFT JOIN truckco_contracts c ON c.employee_id = e.id AND c.status IN ('assigned','in_progress') SET e.status = 'idle' WHERE e.status IN ('on_job','assigned') AND c.id IS NULL")
+    TC.loadSettings()
     TC.ready = true
     print('^2[truckco] database ready^0')
 end) end)

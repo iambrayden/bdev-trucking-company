@@ -493,8 +493,28 @@ function dealer() {
 VIEWS.upgrades = async () => {
   const d = S.dash;
   const ups = obj(d.upgrades);
-  let h = head('Office upgrades', 'Your office starts as a bare shell. Each upgrade adds furniture and raises a company limit.',
-    S.inOffice ? `<button class="btn primary" ${act(() => post('arrange'))}><i class="fa-solid fa-couch"></i>Arrange furniture</button>` : '');
+  let h = head('Office', 'Your office starts as a bare shell. Set it up how you like. Upgrades add furniture and raise company limits.');
+  const place = (kind, icon, label, hint) => `<div class="item"><div class="ic accent"><i class="fa-solid fa-${icon}"></i></div>
+      <div class="main"><div class="t">${label}</div><div class="d">${hint}</div></div>
+      <button class="btn sm" ${act(() => run('setPlace', kind, 'company'))}><i class="fa-solid fa-location-crosshairs"></i>Set here</button></div>`;
+  h += `<div class="card" style="margin-bottom:14px"><h3>Office setup <span class="chip">${S.inOffice ? 'inside' : 'outside'}</span></h3>`;
+  if (S.inOffice) {
+    h += `<div class="list">
+      <div class="item"><div class="ic accent"><i class="fa-solid fa-couch"></i></div><div class="main"><div class="t">Arrange furniture</div><div class="d">Pick up and move the desk, laptop, board and anything from upgrades</div></div>
+        <button class="btn primary sm" ${act(() => post('arrange'))}>Arrange</button></div>
+      ${place('exit', 'door-open', 'Exit door', 'Stand on the door you want people to leave through')}
+      ${place('spawn', 'person-walking-arrow-right', 'Arrival point', 'Where people appear when they walk in (faces the way you face)')}
+      ${place('timeclock', 'clock', 'Time clock', 'Where staff clock in and collect paychecks')}
+    </div>
+    <div class="row between mt12"><span class="muted small">Step outside to set where trucks are picked up and returned.</span>
+      <button class="btn sm danger" ${act(async () => { if (await confirmBox('Reset office', 'Put all furniture and spots back to the default layout?', 'Reset', true)) run('resetLayout'); })}>Reset to default</button></div>`;
+  } else {
+    h += `<div class="list">
+      ${place('truckSpawn', 'truck', 'Truck pickup spot', 'Where company trucks are pulled out. Tip: sit in a vehicle facing the way trucks should face')}
+      ${place('truckReturn', 'square-parking', 'Truck return spot', 'Where drivers park trucks when they bring them back')}
+    </div><div class="muted small mt12">Go inside to arrange furniture and set the exit door, arrival point and time clock.</div>`;
+  }
+  h += `</div>`;
   h += `<div class="card mb12" style="margin-bottom:14px"><div class="row between"><div class="row"><div class="item" style="padding:0;border:0;background:none"><div class="ic accent"><i class="fa-solid fa-sign-hanging"></i></div></div>
       <div><div class="bold">Exterior signs</div><div class="muted small">${d.signs || 0} of ${S.cfg.signs.max} placed • ${money(S.cfg.signs.price)} per new sign • shows your company name outside the depot</div></div></div>
       ${S.inOffice ? `<span class="chip">Go outside to place signs</span>` : `<button class="btn primary" ${act(() => post('placeSigns'))}><i class="fa-solid fa-sign-hanging"></i>Place signs</button>`}</div></div>`;

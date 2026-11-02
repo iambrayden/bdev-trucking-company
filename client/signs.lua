@@ -149,13 +149,14 @@ function TCC.startSignEditor()
     if TCC.isInOffice() then return TCC.notify('Go outside to place signs.', 'error') end
     local res = lib.callback.await('truckco:server:getSignEditor', false)
     if not res or not res.ok then return TCC.notify(res and res.msg or 'Not allowed.', 'error') end
-    local prop = Config.Properties[res.data.property]
-    if #(GetEntityCoords(cache.ped) - prop.entrance.xyz) > cfg.radius then
+    local e = res.data.entrance
+    local center = e and vec3(e.x, e.y, e.z) or TCC.entrance(res.data.property).xyz
+    if #(GetEntityCoords(cache.ped) - center) > cfg.radius then
         return TCC.notify('Go to your depot to place signs.', 'error')
     end
     local items = {}
     for i, it in ipairs(res.data.items or {}) do items[i] = { x = it.x, y = it.y, z = it.z, h = it.h, style = it.style } end
-    editor = { companyId = res.data.companyId, name = res.data.name, items = items, original = #items, center = prop.entrance.xyz }
+    editor = { companyId = res.data.companyId, name = res.data.name, items = items, original = #items, center = center }
     lib.showTextUI(HELP, { position = 'top-center', icon = 'sign-hanging' })
     TCC.notify(('Place up to %d signs within %dm of the entrance. New signs cost %s each.'):format(cfg.max, math.floor(cfg.radius), TCShared.money(cfg.price)), 'inform')
 

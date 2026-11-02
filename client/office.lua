@@ -121,9 +121,18 @@ end
 --------------------------------------------------------------------------------
 -- Zones (exit door + fallback spots for missing interaction props)
 --------------------------------------------------------------------------------
+--- Inside spot (spawn / exit / timeclock) as an offset from the origin:
+--- company choice > admin default > config (merged server-side into office.points).
+local function point(kind)
+    local p = office.points and office.points[kind]
+    if type(p) == 'table' and tonumber(p.x) then return vec4(p.x, p.y, p.z, p.w or 0.0) end
+    local d = office.interior[kind]
+    if d then return vec4(d.x, d.y, d.z, d.w or 0.0) end
+end
+
 --- Visible exit: a door marker and an [E] prompt, so you can always find the way out.
 local function addExitPoint()
-    local pos = TCShared.offset(office.interior.origin, office.interior.exit)
+    local pos = TCShared.offset(office.interior.origin, point('exit'))
     local markerZ = office.floor and (office.floor + 0.05) or (pos.z - 0.95)
     local shown = false
     office.exitPoint = lib.points.new({
@@ -167,13 +176,13 @@ local function addZones()
             options = options,
         })
     end
-    zone(int.exit, {
+    zone(point('exit'), {
         { name = 'truckco_exit', icon = 'fa-solid fa-door-closed', label = 'Leave office', onSelect = function() TCC.exitOffice() end },
     })
     addExitPoint()
     for kind, def in pairs(INTERACT) do
-        if int[kind] and not hasInteract(kind) then
-            zone(int[kind], {
+        if point(kind) and not hasInteract(kind) then
+            zone(point(kind), {
                 { name = 'truckco_' .. kind, icon = def.icon, label = def.label, onSelect = function() TCC.openTablet(def.app) end },
             })
         end
@@ -230,10 +239,13 @@ function TCC.enterOffice(propertyId)
         FreezeEntityPosition(office.shell, true)
     end
     -- go in first so collision is streamed, THEN find the floor and furnish
-    moveTo(TCShared.offset(int.origin, int.spawn), int.spawn.w)
+    local layout = res.data.layout or {}
+    office.points = layout.points or {}
+    local spawn = point('spawn')
+    moveTo(TCShared.offset(int.origin, spawn), spawn.w)
     office.floor = findFloor(int.origin)
-    office.layout = res.data.layout
-    office.savedLayout = res.data.layout
+    office.layout = layout.items
+    office.savedLayout = layout.items
     placeFurniture(res.data.upgrades)
     addZones()
     SetResourceKvp(KVP_KEY, propertyId)
@@ -250,21 +262,23 @@ end
 
 function TCC.exitOffice()
     if not office then return end
-    local prop = Config.Properties[office.propertyId]
+    local door = TCC.entrance(office.propertyId)
     TCC.call('exitOffice')
     teardown()
     office = nil
     DeleteResourceKvp(KVP_KEY)
-    teleport(prop.entrance.xyz, prop.entrance.w + 180.0)
+    teleport(door.xyz, door.w + 180.0)
 end
 
 function TCC.isInOffice() return office ~= nil end
 function TCC.currentProperty() return office and office.propertyId end
 
-RegisterNetEvent('truckco:client:refreshFurniture', function(upgrades, layout)
+RegisterNetEvent('truckco:client:refreshFurniture', function(upgrades, data)
     if office and not TCC.isEditing() then
-        office.savedLayout = layout
-        placeFurniture(upgrades, layout or false)
+        data = data or {}
+        office.points = data.points or {}
+        office.savedLayout = data.items
+        placeFurniture(upgrades, data.items or false)
         removeZones()
         addZones()
     end
@@ -280,7 +294,8 @@ TCC.onLoaded = function()
     if not int then return end
     Wait(1500)
     if #(GetEntityCoords(cache.ped) - int.origin) < 60.0 then
-        teleport(prop.entrance.xyz, prop.entrance.w + 180.0)
+        local door = TCC.entrance(last)
+        teleport(door.xyz, door.w + 180.0)
     end
 end
 
@@ -288,7 +303,8 @@ AddEventHandler('onResourceStop', function(res)
     if res ~= GetCurrentResourceName() or not office then return end
     teardown()
     local prop = Config.Properties[office.propertyId]
-    SetEntityCoords(cache.ped, prop.entrance.x, prop.entrance.y, prop.entrance.z, false, false, false, false)
+    local e = TCC.entrance(office.propertyId)
+    SetEntityCoords(cache.ped, e.x, e.y, e.z, false, false, false, false)
 end)
 
 --------------------------------------------------------------------------------
@@ -455,8 +471,11 @@ local function saveEditor()
     local items = {}
     for _, item in ipairs(office.items) do items[item.key] = itemTransform(item) end
     stopEditor()
-    local res = TCC.call('saveLayout', items)
-    if res.ok then office.layout = items office.savedLayout = items end
+    if mode == 'default' then
+        TCC.call('saveDefaultLayout', items)
+    else
+        TCC.call('saveLayout', items)
+    end
 end
 
 local HELP = '[E] pick up / put down  ·  [Scroll] rotate  ·  [↑/↓] height  ·  [R] reset  ·  [Backspace] back  ·  [Enter] save'
@@ -466,7 +485,9 @@ function TCC.startEditor(mode)
     if editing then return end
     editing = { mode = mode or 'save' }
     lib.showTextUI(HELP, { position = 'top-center', icon = 'couch' })
-    TCC.notify(mode == 'config' and 'Furniture editor (config mode): Enter copies config lines.' or 'Arrange your office. Press Enter to save.', 'inform')
+    TCC.notify(mode == 'default' and 'Arranging the DEFAULT layout for every office of this type. Enter saves.'
+        or mode == 'config' and 'Furniture editor (config mode): Enter copies config lines.'
+        or 'Arrange your office. Press Enter to save.', 'inform')
     CreateThread(function()
         while editing do
             for _, c in ipairs({ 14, 15, 16, 17, 24, 25, 37, 44, 45, 140, 141, 142, 257, 263 }) do DisableControlAction(0, c, true) end
@@ -512,39 +533,38 @@ function TCC.startEditor(mode)
     end)
 end
 
--- spawn / exit / timeclock points for the config (admin)
-local function pointLine(name)
-    local o = office.interior.origin
-    local c = GetEntityCoords(cache.ped)
-    if name == 'spawn' then
-        return ('spawn = vec4(%s, %s, %s, %s),'):format(fmt(c.x - o.x), fmt(c.y - o.y), fmt(c.z - o.z), fmt(GetEntityHeading(cache.ped)))
-    end
-    return ('%s = vec3(%s, %s, %s),'):format(name, fmt(c.x - o.x), fmt(c.y - o.y), fmt(c.z - o.z))
+--------------------------------------------------------------------------------
+-- Admin setup menu (/truckco_furnish). Everything saves to the database;
+-- "copy config lines" is only there if you want to bake it into config.lua.
+--------------------------------------------------------------------------------
+local function setPlace(kind, scope)
+    return TCC.call('setPlace', kind, scope)
 end
 
 RegisterNetEvent('truckco:client:furnish', function()
-    if not office then return TCC.notify('Enter an office first.', 'error') end
     if editing then return end
-    local options = {
-        { title = 'Arrange furniture (config lines)', description = 'Move props in-game; Enter copies lines for config.lua', icon = 'couch',
-          onSelect = function() TCC.startEditor('config') end },
-    }
-    for _, p in ipairs({ 'spawn', 'exit', 'timeclock' }) do
-        options[#options + 1] = {
-            title = ('Set %s at my feet'):format(p),
-            description = p == 'timeclock' and 'Fallback spot used when no prop has interact = timeclock' or 'Stand where you want it first',
-            icon = 'location-crosshairs',
-            onSelect = function() output(pointLine(p), p) end,
+    local options
+    if office then
+        options = {
+            { title = 'Arrange default furniture', description = 'Saved for every company using this office (unless they arranged their own)', icon = 'couch',
+              onSelect = function() TCC.startEditor('default') end },
+            { title = 'Set default exit door here', description = 'Stand on the door', icon = 'door-open', onSelect = function() setPlace('exit', 'default') end },
+            { title = 'Set default arrival point here', description = 'Where people appear when they walk in (uses your heading)', icon = 'person-walking-arrow-right', onSelect = function() setPlace('spawn', 'default') end },
+            { title = 'Set default time clock here', description = 'Used when no prop is the time clock', icon = 'clock', onSelect = function() setPlace('timeclock', 'default') end },
+            { title = 'Copy furniture as config lines', description = 'Optional: bake the current layout into config.lua', icon = 'clipboard',
+              onSelect = function()
+                  local lines = {}
+                  for _, item in ipairs(office.items) do lines[#lines + 1] = itemLine(item) end
+                  output(table.concat(lines, '\n'), 'furniture config lines')
+              end },
+        }
+    else
+        options = {
+            { title = 'Move this depot entrance here', description = 'Nearest depot within 80m; blip and door move for everyone', icon = 'door-closed', onSelect = function() setPlace('entrance', 'default') end },
+            { title = 'Set default truck pickup here', description = 'Where company trucks are pulled out (sit in a vehicle to use its position)', icon = 'truck', onSelect = function() setPlace('truckSpawn', 'default') end },
+            { title = 'Set default truck return here', description = 'Where drivers drop trucks back off', icon = 'square-parking', onSelect = function() setPlace('truckReturn', 'default') end },
         }
     end
-    options[#options + 1] = {
-        title = 'Print all furniture lines', icon = 'clipboard',
-        onSelect = function()
-            local lines = {}
-            for _, item in ipairs(office.items) do lines[#lines + 1] = itemLine(item) end
-            output(table.concat(lines, '\n'), 'furniture config lines')
-        end,
-    }
-    lib.registerContext({ id = 'truckco_furnish', title = 'Office setup (admin)', options = options })
+    lib.registerContext({ id = 'truckco_furnish', title = office and 'Office setup (admin)' or 'Depot setup (admin)', options = options })
     lib.showContext('truckco_furnish')
 end)

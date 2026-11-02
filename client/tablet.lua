@@ -21,6 +21,7 @@ local ALLOWED = {
     joinRoster = true, renameCompany = true, sellCompany = true, quitCompany = true,
     getMyAssignments = true, toggleDuty = true, collectPay = true,
     buyProperty = true,
+    setPlace = true, resetLayout = true,
 }
 
 -- static data the UI needs (sent once per open)
@@ -75,7 +76,7 @@ local function remoteAllowed()
     local pos = GetEntityCoords(cache.ped)
     for id, prop in pairs(Config.Properties) do
         local st = TCC.properties[id]
-        if st and st.owned and #(pos - prop.entrance.xyz) < Config.Tablet.remoteDistance then return true end
+        if st and st.owned and #(pos - TCC.entrance(id).xyz) < Config.Tablet.remoteDistance then return true end
     end
     return false
 end
