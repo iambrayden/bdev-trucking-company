@@ -44,35 +44,11 @@ local function refreshBlips()
 end
 
 local function viewProperty(id)
-    local prop = Config.Properties[id]
     local st = TCC.properties[id] or {}
     if st.owned then
-        return TCC.notify(('%s is owned by %s.'):format(prop.label, st.name), 'inform')
+        return TCC.notify(('%s is owned by %s.'):format(Config.Properties[id].label, st.name), 'inform')
     end
-    local interior = Config.Interiors[prop.interior]
-    lib.registerContext({
-        id = 'truckco_property',
-        title = prop.label,
-        options = {
-            { title = 'Price', description = TCShared.money(prop.price), icon = 'tag', readOnly = true },
-            { title = 'Upkeep', description = ('%s every payroll (%d min)'):format(TCShared.money(prop.upkeep), Config.Payroll.intervalMinutes), icon = 'file-invoice-dollar', readOnly = true },
-            { title = 'Office', description = interior and interior.label or prop.interior, icon = 'building', readOnly = true },
-            { title = 'Start capacity', description = ('%d staff, %d trucks (expand with upgrades)'):format(Config.Base.maxEmployees, Config.Base.maxTrucks), icon = 'warehouse', readOnly = true },
-            {
-                title = 'Buy & found a trucking company',
-                icon = 'file-signature',
-                onSelect = function()
-                    local input = lib.inputDialog('Found your company', {
-                        { type = 'input', label = 'Company name', required = true, min = 3, max = 40, placeholder = 'Rourke Freight Lines' },
-                    })
-                    if not input then return end
-                    if not TCC.confirm('Confirm purchase', ('Buy **%s** for **%s** from your bank?'):format(prop.label, TCShared.money(prop.price))) then return end
-                    TCC.call('buyProperty', id, input[1])
-                end,
-            },
-        },
-    })
-    lib.showContext('truckco_property')
+    TCC.openTablet('listing', { propertyId = id })
 end
 
 local function setupZones()
@@ -103,7 +79,7 @@ local function setupZones()
                     icon = 'fa-solid fa-truck-fast',
                     label = 'My loads',
                     canInteract = function() return TCC.properties[id] and TCC.properties[id].owned end,
-                    onSelect = function() TCC.openDriverMenu() end,
+                    onSelect = function() TCC.openTablet('driver') end,
                 },
             },
         })

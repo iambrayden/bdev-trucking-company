@@ -33,6 +33,13 @@ lib.addCommand('truckco_pos', {
     TriggerClientEvent('truckco:client:copy', source, s)
 end)
 
+lib.addCommand('truckco_furnish', {
+    help = 'Move office furniture / exit point and print config lines (stand inside an office)',
+    restricted = 'group.admin',
+}, function(source)
+    TriggerClientEvent('truckco:client:furnish', source)
+end)
+
 lib.addCommand('truckco_board', {
     help = 'Force-generate contracts on the trucking bid board',
     restricted = 'group.admin',

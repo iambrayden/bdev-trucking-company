@@ -1,17 +1,17 @@
-# UI mockups
+# Demo images
 
-Source for the images in [`../screenshots`](../screenshots). They are **mockups** of the in-game UI,
-styled after ox_lib's context menus, dialogs, notifications, text UI and progress circle, plus ox_target.
-The text and numbers in them match the real strings and default config of this resource.
+Source for the images in [`../screenshots`](../screenshots).
 
-- `scenes.js`: one entry per image (menu options, dialogs, notifications, caption)
-- `render.js` / `index.html`: draws the background and the ox_lib-style components
-- `sheet.html`: the overview contact sheet
-- `shoot.js`: renders everything with Playwright
+- **Tablet screens (01–13)** are the resource's real UI from [`html/`](../../html), rendered in Chromium with
+  `tablet-mock.js` standing in for the server, over an in-game office backdrop (`bg-office.jpg`).
+- **14–16** (job-offer pop-up, driving HUD) are ox_lib-style mockups from `scenes.js` + `render.js` + `index.html`.
+- `sheet.html` builds the `00-overview.jpg` contact sheet.
 
 ```bash
 npm i -D playwright && npx playwright install chromium
 node shoot.js
 ```
 
-Open `index.html?s=03-management` in a browser to preview a single scene.
+Preview the tablet in a browser without FiveM: serve the repo root and open
+`html/index.html?app=finance` with `tablet-mock.js` injected before `app.js`
+(that's what `shoot.js` does with `page.addInitScript`).

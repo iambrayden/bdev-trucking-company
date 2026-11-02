@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trucking Co. Tablet</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="root" class="hidden">
+  <div id="tablet">
+    <div id="screen">
+      <div id="statusbar">
+        <span id="clock">12:00</span>
+        <span id="sb-company"></span>
+        <span class="sb-icons"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></span>
+      </div>
+      <div id="body">
+        <nav id="sidebar"></nav>
+        <main id="content"></main>
+      </div>
+    </div>
+    <div id="homebtn" title="Close"></div>
+  </div>
+  <div id="modal" class="hidden"></div>
+  <div id="toasts"></div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

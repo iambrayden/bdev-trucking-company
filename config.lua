@@ -63,25 +63,35 @@ Config.Interiors = {
         label = 'Small Warehouse Office',
         type = 'interior',
         origin = vec3(1094.988, -3101.776, -39.0),
+        -- spawn / exit are offsets from origin (player coords, not floor)
         spawn = vec4(0.0, 0.0, 0.0, 90.0),
-        exit = vec3(0.6, 0.0, 0.0),
-        computer = vec3(-3.0, 2.0, 0.0),   -- management laptop
-        board = vec3(-3.0, -2.0, 0.0),     -- job bid board
-        timeclock = vec3(-1.0, 3.0, 0.0),  -- duty toggle / paycheck
+        exit = vec3(0.0, 0.0, 0.0),        -- defaults to where you arrive; move it onto the door with /truckco_furnish
+        -- fallback interaction spots, only used if the matching `interact` prop is missing
+        computer = vec3(-3.0, 2.0, 0.0),
+        board = vec3(-3.0, -2.0, 0.0),
+        timeclock = vec3(-1.0, 3.0, 0.0),
+        --[[
+            Furniture. offset = vec4(x, y, heightAboveFloor, heading) relative to origin.
+              * Props are snapped to the real floor (bottom of the model sits at height 0).
+              * on = '<id>'  stacks the prop on top of another prop with that id.
+              * interact = 'computer' | 'board' | 'timeclock' makes the prop itself the
+                ox_target interaction point (opens the tablet on that app).
+            Fix positions in-game with /truckco_furnish (admin): aim, place, and it
+            prints the line to paste here.
+        ]]
         furniture = {
-            -- always present: a bare-bones setup in an empty shell
             base = {
-                { model = 'prop_box_wood02a', offset = vec4(-3.0, 2.0, 0.0, 90.0) },
-                { model = 'prop_laptop_01a', offset = vec4(-3.0, 2.0, 0.95, 90.0) },
-                { model = 'prop_tv_flat_01', offset = vec4(-3.4, -2.0, 1.0, 90.0) },
+                { id = 'desk', model = 'prop_box_wood02a', offset = vec4(-3.0, 2.0, 0.0, 90.0) },
+                { id = 'laptop', model = 'prop_laptop_01a', on = 'desk', offset = vec4(-3.0, 2.0, 0.0, 270.0), interact = 'computer' },
+                { id = 'board', model = 'prop_tv_flat_01', offset = vec4(-3.6, -2.0, 1.1, 90.0), interact = 'board' },
             },
             -- furniture[upgradeKey][level] = list of props added at that level
             desks = {
-                [1] = { { model = 'prop_off_chair_01', offset = vec4(-5.0, 1.0, 0.0, 90.0) } },
-                [2] = { { model = 'prop_off_chair_01', offset = vec4(-5.0, -1.0, 0.0, 90.0) } },
+                [1] = { { id = 'chair1', model = 'prop_off_chair_01', offset = vec4(-5.0, 1.0, 0.0, 90.0) } },
+                [2] = { { id = 'chair2', model = 'prop_off_chair_01', offset = vec4(-5.0, -1.0, 0.0, 90.0) } },
             },
             breakroom = {
-                [1] = { { model = 'prop_vend_coffe_01', offset = vec4(-1.0, 4.2, 0.0, 180.0) } },
+                [1] = { { id = 'coffee', model = 'prop_vend_coffe_01', offset = vec4(-1.0, 4.2, 0.0, 180.0) } },
             },
         },
     },
@@ -94,6 +104,17 @@ Config.Interiors = {
     --     computer = vec3(3.5, -1.0, 1.0), board = vec3(-3.0, 1.0, 1.0), timeclock = vec3(0.0, 3.0, 1.0),
     --     furniture = { base = {} },
     -- },
+}
+
+--------------------------------------------------------------------------------
+-- Tablet UI
+--------------------------------------------------------------------------------
+Config.Tablet = {
+    command = 'trucktablet',   -- opens the company tablet anywhere (set nil to disable)
+    allowRemote = true,        -- false = tablet only works inside the office / at the depot
+    remoteDistance = 75.0,     -- when allowRemote = false: max distance from your depot
+    prop = `prop_cs_tablet`,
+    anim = { dict = 'amb@code_human_in_bus_passenger_idles@female@tablet@base', clip = 'base' },
 }
 
 --------------------------------------------------------------------------------

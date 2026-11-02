@@ -19,7 +19,7 @@ client_scripts {
     '@qbx_core/modules/playerdata.lua',
     'client/main.lua',
     'client/office.lua',
-    'client/menus.lua',
+    'client/tablet.lua',
     'client/runs.lua',
 }
 
@@ -35,6 +35,14 @@ server_scripts {
     'server/dispatch.lua',
     'server/payroll.lua',
     'server/ticks.lua',
+}
+
+ui_page 'html/index.html'
+
+files {
+    'html/index.html',
+    'html/style.css',
+    'html/app.js',
 }
 
 dependencies {
