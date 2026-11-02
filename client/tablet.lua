@@ -91,8 +91,20 @@ function TCC.openTablet(app, extra)
     local ok, err = pcall(startProp)
     if not ok then print('[truckco] tablet prop/anim failed: ' .. tostring(err)) end
     SetNuiFocus(true, true)
+    SetNuiFocusKeepInput(false)
     openToken = openToken + 1
     local token = openToken
+    -- ox_target runs onSelect first and only then tears itself down, calling
+    -- SetNuiFocus(false) + SetNuiFocusKeepInput(true/false) after we've opened.
+    -- Re-assert our focus for a moment so the tablet keeps the mouse.
+    CreateThread(function()
+        local untilT = GetGameTimer() + 1000
+        while isOpen and token == openToken and GetGameTimer() < untilT do
+            if not IsNuiFocused() then SetNuiFocus(true, true) end
+            SetNuiFocusKeepInput(false)
+            Wait(0)
+        end
+    end)
     TCC.tabletAck = false
     SendNUIMessage({
         action = 'open',
@@ -114,7 +126,9 @@ end
 function TCC.closeTablet()
     if not isOpen then return end
     isOpen = false
+    openToken = openToken + 1
     SetNuiFocus(false, false)
+    SetNuiFocusKeepInput(false)
     SendNUIMessage({ action = 'close' })
     stopProp()
 end

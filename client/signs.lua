@@ -8,6 +8,7 @@ local signs = {}      -- list of { companyId, name, items = { {x,y,z,h,style} } 
 local duis = {}       -- [key] = { dui, txd, used }
 local txdSeq = 0
 local editor = nil
+local DrawPolyTex = DrawTexturedPoly or DrawSpritePoly -- renamed native (0x29280002282F1928)
 
 local function urlencode(str)
     return (str:gsub('[^%w%-_%.~]', function(c) return ('%%%02X'):format(c:byte()) end))
@@ -73,10 +74,10 @@ local function drawSign(name, it, alpha)
         local qx, qy = cx + rx * hw, cy + ry * hw
         local uL, uR = 0.0, 1.0
         if side == 2 then lx, ly, qx, qy = qx, qy, lx, ly end
-        DrawSpritePoly(lx, ly, z0, qx, qy, z0, qx, qy, z1, 255, 255, 255, alpha, txd, 'sign', uL, 1.0, 1.0, uR, 1.0, 1.0, uR, 0.0, 1.0)
-        DrawSpritePoly(lx, ly, z0, qx, qy, z1, lx, ly, z1, 255, 255, 255, alpha, txd, 'sign', uL, 1.0, 1.0, uR, 0.0, 1.0, uL, 0.0, 1.0)
-        DrawSpritePoly(lx, ly, z0, qx, qy, z1, qx, qy, z0, 255, 255, 255, alpha, txd, 'sign', uL, 1.0, 1.0, uR, 0.0, 1.0, uR, 1.0, 1.0)
-        DrawSpritePoly(lx, ly, z0, lx, ly, z1, qx, qy, z1, 255, 255, 255, alpha, txd, 'sign', uL, 1.0, 1.0, uL, 0.0, 1.0, uR, 0.0, 1.0)
+        DrawPolyTex(lx, ly, z0, qx, qy, z0, qx, qy, z1, 255, 255, 255, alpha, txd, 'sign', uL, 1.0, 1.0, uR, 1.0, 1.0, uR, 0.0, 1.0)
+        DrawPolyTex(lx, ly, z0, qx, qy, z1, lx, ly, z1, 255, 255, 255, alpha, txd, 'sign', uL, 1.0, 1.0, uR, 0.0, 1.0, uL, 0.0, 1.0)
+        DrawPolyTex(lx, ly, z0, qx, qy, z1, qx, qy, z0, 255, 255, 255, alpha, txd, 'sign', uL, 1.0, 1.0, uR, 0.0, 1.0, uR, 1.0, 1.0)
+        DrawPolyTex(lx, ly, z0, lx, ly, z1, qx, qy, z1, 255, 255, 255, alpha, txd, 'sign', uL, 1.0, 1.0, uL, 0.0, 1.0, uR, 0.0, 1.0)
     end
 end
 

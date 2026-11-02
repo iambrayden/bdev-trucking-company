@@ -102,3 +102,18 @@ lib.addCommand('truckco_cadsync', {
     end
     TC.notify(source, ('Sent %d trucks to Imperial CAD.'):format(count), 'success')
 end)
+
+-- start-up check so misconfiguration is obvious in the server console
+CreateThread(function()
+    Wait(5000)
+    if not (cfg and cfg.enabled) then return end
+    if GetResourceState(cfg.resource) ~= 'started' then
+        print(('^3[truckco] Imperial CAD integration enabled but resource "%s" is not started; trucks will not be registered.^0'):format(cfg.resource))
+        return
+    end
+    if GetConvar('imperialAPI', '') == '' or GetConvar('imperial_community_id', '') == '' then
+        print('^3[truckco] Imperial CAD: imperialAPI / imperial_community_id convars look empty in server.cfg; registrations will fail.^0')
+    else
+        print('^2[truckco] Imperial CAD integration active^0')
+    end
+end)
