@@ -351,6 +351,7 @@ lib.callback.register('truckco:server:saveSigns', function(src, items)
         clean[i] = {
             x = math.floor(x * 100 + 0.5) / 100, y = math.floor(y * 100 + 0.5) / 100, z = math.floor(z * 100 + 0.5) / 100,
             h = math.floor((h % 360) * 10 + 0.5) / 10,
+            lift = math.floor(TCShared.clamp(tonumber(it.lift) or 0.0, -1.0, 12.0) * 100 + 0.5) / 100,
             style = STYLE[it.style] and it.style or Config.Signs.styles[1].id,
         }
     end

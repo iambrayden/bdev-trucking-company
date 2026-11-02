@@ -92,7 +92,7 @@ local function drawSign(name, it, alpha)
     local rx, ry = math.cos(h), math.sin(h)        -- right
     local fx, fy = -math.sin(h), math.cos(h)       -- forward (sign faces this way)
     local hw, ht = cfg.size.width / 2, cfg.size.height
-    local z0 = it.z + cfg.size.postHeight
+    local z0 = it.z + cfg.size.postHeight + (it.lift or 0.0) -- raising a sign stretches its posts
     local z1 = z0 + ht
     post(it.x - rx * (hw - 0.4), it.y - ry * (hw - 0.4), it.z, z1 - 0.05)
     post(it.x + rx * (hw - 0.4), it.y + ry * (hw - 0.4), it.z, z1 - 0.05)
@@ -229,7 +229,8 @@ local function styleIndex(id)
     return 1
 end
 
-local HELP = '[E / Click] place · pick up  ·  [Scroll] rotate  ·  [Q] style  ·  [X] delete  ·  [Backspace] back  ·  [Enter] save'
+local HELP = '[E / Click] place · pick up  ·  [Scroll] rotate  ·  [↑/↓] height  ·  [Q] style  ·  [X] delete  ·  [Backspace] back  ·  [Enter] save'
+local MIN_LIFT, MAX_LIFT = -1.0, 12.0
 
 function TCC.startSignEditor()
     if editor then return end
@@ -242,10 +243,10 @@ function TCC.startSignEditor()
         return TCC.notify(('Go to your depot to place signs (within %dm of the entrance).'):format(math.floor(cfg.radius)), 'error')
     end
     local items = {}
-    for i, it in ipairs(res.data.items or {}) do items[i] = { x = it.x, y = it.y, z = it.z, h = it.h, style = it.style } end
+    for i, it in ipairs(res.data.items or {}) do items[i] = { x = it.x, y = it.y, z = it.z, h = it.h, style = it.style, lift = it.lift or 0.0 } end
     editor = {
         companyId = res.data.companyId, name = res.data.name, items = items, center = center,
-        rot = (GetGameplayCamRot(2).z + 180.0) % 360, style = cfg.styles[1].id,
+        rot = (GetGameplayCamRot(2).z + 180.0) % 360, style = cfg.styles[1].id, lift = 0.0,
     }
     lib.showTextUI(HELP, { position = 'top-center', icon = 'sign-hanging' })
     TCC.notify(('Aim where the sign should stand and press E. Up to %d signs within %dm of the entrance, %s each. Enter saves.')
@@ -253,7 +254,7 @@ function TCC.startSignEditor()
 
     CreateThread(function()
         while editor do
-            for _, c in ipairs({ 14, 15, 16, 17, 24, 25, 37, 38, 44, 73, 140, 141, 142, 177, 191, 194, 199, 200, 201, 202, 257, 263 }) do
+            for _, c in ipairs({ 14, 15, 16, 17, 24, 25, 27, 37, 38, 44, 73, 140, 141, 142, 172, 173, 177, 191, 194, 199, 200, 201, 202, 257, 263 }) do
                 DisableControlAction(0, c, true)
             end
             local aim = groundAim(editor.center.z - 1.0)
@@ -261,6 +262,10 @@ function TCC.startSignEditor()
             local step = held(21) and 1.0 or 15.0
             if pressed(15) or pressed(17) then editor.rot = (editor.rot + step) % 360 end
             if pressed(14) or pressed(16) then editor.rot = (editor.rot - step) % 360 end
+            -- height: arrow up / down (Shift = fine)
+            local liftStep = held(21) and 0.01 or 0.05
+            if held(172) then editor.lift = math.min(MAX_LIFT, editor.lift + liftStep) end
+            if held(173) then editor.lift = math.max(MIN_LIFT, editor.lift - liftStep) end
             if pressed(44) then
                 editor.style = cfg.styles[styleIndex(editor.style) % #cfg.styles + 1].id
                 TCC.notify('Style: ' .. cfg.styles[styleIndex(editor.style)].label, 'inform')
@@ -278,7 +283,7 @@ function TCC.startSignEditor()
 
             -- preview: the held sign, or a ghost for a new one
             if aim and inRange and (editor.heldIndex or (not target and #editor.items < cfg.max)) then
-                editor.preview = { x = aim.x, y = aim.y, z = aim.z, h = editor.rot, style = editor.style }
+                editor.preview = { x = aim.x, y = aim.y, z = aim.z, h = editor.rot, style = editor.style, lift = editor.lift }
             else
                 editor.preview = nil
             end
@@ -286,11 +291,11 @@ function TCC.startSignEditor()
             if aim then
                 local label
                 if not inRange then label = '~r~Too far from the depot'
-                elseif editor.heldIndex then label = '[E] put down  ~c~[X] delete  [Backspace] put back'
+                elseif editor.heldIndex then label = ('[E] put down  ~c~[↑/↓] height %+.1fm  [X] delete  [Backspace] put back'):format(editor.lift)
                 elseif target then label = '[E] move this sign'
                 elseif #editor.items >= cfg.max then label = ('~r~Limit reached (%d). Aim at a sign to move it.'):format(cfg.max)
-                else label = ('[E] place sign  ~c~(%d/%d)'):format(#editor.items, cfg.max) end
-                local lz = editor.preview and (editor.preview.z + cfg.size.postHeight + cfg.size.height + 0.4) or (aim.z + 1.0)
+                else label = ('[E] place sign  ~c~(%d/%d)  [↑/↓] height %+.1fm'):format(#editor.items, cfg.max, editor.lift) end
+                local lz = editor.preview and (editor.preview.z + cfg.size.postHeight + (editor.preview.lift or 0) + cfg.size.height + 0.4) or (aim.z + 1.0)
                 text3d(aim.x, aim.y, lz, label, 0.35)
             end
             if aim and not inRange then
@@ -305,8 +310,8 @@ function TCC.startSignEditor()
                     end
                 elseif target then
                     local it = editor.items[target]
-                    editor.backup = { x = it.x, y = it.y, z = it.z, h = it.h, style = it.style }
-                    editor.heldIndex, editor.rot, editor.style = target, it.h, it.style or editor.style
+                    editor.backup = { x = it.x, y = it.y, z = it.z, h = it.h, style = it.style, lift = it.lift or 0.0 }
+                    editor.heldIndex, editor.rot, editor.style, editor.lift = target, it.h, it.style or editor.style, it.lift or 0.0
                 elseif editor.preview then
                     editor.items[#editor.items + 1] = editor.preview
                     TCC.notify(('Sign placed (%d/%d). Press Enter to save.'):format(#editor.items, cfg.max), 'success')
