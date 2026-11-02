@@ -255,6 +255,7 @@ end
 
 local function begin(data)
     run = data
+    run.stage = run.stage or 'pickup' -- a freshly started load always begins at the pickup
     if run.deadline then run.deadlineAt = GetGameTimer() // 1000 + run.deadline end
     local truck = waitForEntity(run.truckNet, 10000)
     if not truck then

@@ -137,6 +137,7 @@ lib.callback.register('truckco:server:startPlayerRun', function(src, contractId)
     TC.runs[c.id] = run
     return TC.result(true, nil, {
         contractId = c.id,
+        stage = 'pickup',
         truckNet = netId,
         class = c.class,
         trailer = c.trailer,
