@@ -311,9 +311,47 @@ lib.callback.register('truckco:server:collectPay', function(src)
     return TC.result(true, ('Collected %s.'):format(TCShared.money(emp.pending_pay)))
 end)
 
-AddEventHandler('playerDropped', function()
-    local src = source
-    for cid, s in pairs(TC.onDuty) do
-        if s == src then TC.onDuty[cid] = nil end
+--- Clock a player employee out and let owners/managers know.
+function TC.clockOut(cid, why)
+    if not TC.onDuty[cid] then return false end
+    TC.onDuty[cid] = nil
+    local emp = MySQL.single.await("SELECT company_id, name FROM truckco_employees WHERE citizenid = ? AND kind = 'player'", { cid })
+    if emp and why then
+        TC.notifyCompany(emp.company_id, ('%s was clocked out (%s).'):format(emp.name, why), 'inform', 'hire')
     end
+    return true
+end
+
+local function clockOutSource(src, why)
+    for cid, s in pairs(TC.onDuty) do
+        if s == src then pcall(TC.clockOut, cid, why) end
+    end
+end
+
+-- leaving the server
+AddEventHandler('playerDropped', function()
+    clockOutSource(source, 'left the server')
+end)
+
+-- logging out / switching character without leaving (multicharacter)
+AddEventHandler('QBCore:Server:OnPlayerUnload', function(src)
+    clockOutSource(src or source, 'logged out')
+end)
+AddEventHandler('qbx_core:server:playerLoggedOut', function(src)
+    clockOutSource(src or source, 'logged out')
+end)
+
+--- Owner / manager clocks a player employee out.
+lib.callback.register('truckco:server:clockOutEmployee', function(src, id)
+    local company, err = TC.authorize(src, 'hire')
+    if not company then return TC.result(false, err) end
+    local emp = MySQL.single.await('SELECT * FROM truckco_employees WHERE id = ? AND company_id = ?', { tonumber(id), company.id })
+    if not emp or emp.kind ~= 'player' then return TC.result(false, 'Player employee not found.') end
+    if not TC.onDuty[emp.citizenid] then return TC.result(false, ('%s is not clocked in.'):format(emp.name)) end
+    TC.onDuty[emp.citizenid] = nil
+    local target = TC.sourceByCid(emp.citizenid)
+    if target and target ~= src then
+        TC.notify(target, ('You were clocked out by %s.'):format(TC.charName(TC.getPlayer(src))), 'inform', company.name)
+    end
+    return TC.result(true, ('%s clocked out.'):format(emp.name))
 end)

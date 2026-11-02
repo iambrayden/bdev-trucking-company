@@ -23,6 +23,7 @@ local ALLOWED = {
     buyProperty = true,
     setPlace = true, resetLayout = true,
     giveBonus = true, getLoans = true, takeLoan = true, repayLoan = true,
+    clockOutEmployee = true,
 }
 
 -- static data the UI needs (sent once per open)

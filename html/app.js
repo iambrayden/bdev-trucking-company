@@ -436,6 +436,10 @@ VIEWS.employees = async () => {
       <button class="btn sm" ${act(() => run('setWage', e.id, Number($('#emp-wage').value)))}>Set wage</button></div>
       <div class="muted small mt8">Range ${money(role.minWage)} – ${money(role.maxWage)} per shift</div>`;
   }
+  if (can('hire') && e.kind === 'player') {
+    h += `<h3 class="mt16">Duty</h3><div class="row between"><span class="muted small">${e.onDuty ? 'Clocked in: dispatch can send them loads and they earn wages this shift.' : e.online ? 'Clocked out.' : 'Offline (players are clocked out automatically when they leave or log out).'}</span>
+      <button class="btn sm ${e.onDuty ? 'danger' : ''}" ${e.onDuty ? '' : 'disabled'} ${act(async () => { if (await confirmBox('Clock out', `Clock <b>${esc(e.name)}</b> out?`, 'Clock out')) run('clockOutEmployee', e.id); })}><i class="fa-solid fa-clock"></i>Clock out</button></div>`;
+  }
   if (can('finance') && e.kind === 'player') {
     h += `<h3 class="mt16">Give a bonus</h3>
       <div class="row"><div class="money-input" style="flex:1"><span>${esc(S.cfg.currency)}</span><input class="input" id="bonus-amt" type="number" min="1" max="${S.cfg.bonusMax}" placeholder="Amount"></div></div>
