@@ -72,7 +72,7 @@ Buy a depot down by the docks, build out the empty office shell, hire staff (NPC
 5. **Train**: *Staff* → pick someone → *Training*. Semi loads need a CDL. Dispatchers need Dispatch Certification before they automate anything.
 6. **Bid**: open the *Bid Board* (office screen or `/truckboard`) and bid on loads. When bidding closes, the winner is notified.
 7. **Assign**: *Loads* → *Assign* on a load marked "Needs driver" → pick a driver and truck. NPCs leave at once. Players get a notification.
-8. **Drive it yourself** (player drivers): when a load is assigned you get a notification with the pickup, drop-off, truck and deadline. Go to the depot yard and either press *Start load* in *My shift* (`/truckjob`), or use the **Company garage** target, which starts your assigned load for you. The truck spawns with a GPS route, and an on-screen panel shows each step (pickup → delivery → return truck), the distance, time left and your cut. The truck spawns in the yard. Follow the route, hook the trailer, deliver, then bring the truck back.
+8. **Drive it yourself** (player drivers): when a load is assigned you get a notification with the pickup, drop-off, truck and deadline. Go to the depot yard and either press *Start load* in *My shift* (`/truckjob`), or use the **Company garage** target, which starts your assigned load for you. The truck spawns with a GPS route, and an on-screen panel shows each step (pickup → delivery → return truck), the distance, time left and your cut.
 9. **Automate**: hire and certify a dispatcher, then set *Dispatch* the way you want it.
 
 ### Commands
