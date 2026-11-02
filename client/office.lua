@@ -323,26 +323,70 @@ end)
 --     R            reset everything to the default layout
 --     Enter        save and finish
 --------------------------------------------------------------------------------
-local editing = nil -- { mode, held, hover }
+local editing = nil -- { mode, held, hover, moved = {} }
 
 function TCC.isEditing() return editing ~= nil end
 
-local function camRay(ignore)
-    local camPos = GetGameplayCamCoord()
-    local rot = GetGameplayCamRot(2)
-    local rx, rz = math.rad(rot.x), math.rad(rot.z)
-    local dir = vec3(-math.sin(rz) * math.abs(math.cos(rx)), math.cos(rz) * math.abs(math.cos(rx)), math.sin(rx))
-    local dest = camPos + dir * 15.0
-    local ray = StartExpensiveSynchronousShapeTestLosProbe(camPos.x, camPos.y, camPos.z, dest.x, dest.y, dest.z, 1 | 16, ignore or 0, 4)
-    local _, hit, pos, normal, ent = GetShapeTestResult(ray)
-    return hit == 1, pos, normal, ent
+--- Was a control pressed this frame? Works even if another resource disabled it.
+local function pressed(c)
+    return IsControlJustPressed(0, c) or IsDisabledControlJustPressed(0, c)
+end
+local function held(c)
+    return IsControlPressed(0, c) or IsDisabledControlPressed(0, c)
 end
 
-local function itemFromEntity(ent)
-    if not ent or ent == 0 then return nil end
-    for _, item in ipairs(office.items) do
-        if item.obj == ent then return item end
+local function camDir()
+    local rot = GetGameplayCamRot(2)
+    local rx, rz = math.rad(rot.x), math.rad(rot.z)
+    return GetGameplayCamCoord(), vec3(-math.sin(rz) * math.abs(math.cos(rx)), math.cos(rz) * math.abs(math.cos(rx)), math.sin(rx))
+end
+
+--- Where the camera is aiming: surface hit, or the floor plane as a fallback.
+local function aimPoint(ignore)
+    local camPos, dir = camDir()
+    local dest = camPos + dir * 20.0
+    local ray = StartExpensiveSynchronousShapeTestLosProbe(camPos.x, camPos.y, camPos.z, dest.x, dest.y, dest.z, 1 | 16, ignore or 0, 4)
+    local _, hit, pos, normal = GetShapeTestResult(ray)
+    if hit == 1 then return pos, normal end
+    if dir.z < -0.05 and office.floor then
+        local t = (office.floor - camPos.z) / dir.z
+        if t > 0 and t < 25 then return camPos + dir * t, vec3(0.0, 0.0, 1.0) end
     end
+end
+
+--- Furniture item closest to the aim line (doesn't need the prop to have collision).
+local function aimedItem()
+    local camPos, dir = camDir()
+    local best, bestScore
+    for _, item in ipairs(office.items) do
+        if DoesEntityExist(item.obj) then
+            local min, max = GetModelDimensions(GetEntityModel(item.obj))
+            local c = GetEntityCoords(item.obj)
+            local center = vec3(c.x, c.y, c.z + (min.z + max.z) / 2)
+            local v = center - camPos
+            local t = v.x * dir.x + v.y * dir.y + v.z * dir.z
+            if t > 0.5 and t < 14.0 then
+                local perp = #(v - dir * t)
+                local radius = math.max(0.45, math.max(max.x - min.x, max.y - min.y, max.z - min.z) * 0.6)
+                local score = perp / radius
+                if score < 1.0 and (not bestScore or score < bestScore) then best, bestScore = item, score end
+            end
+        end
+    end
+    return best
+end
+
+local function label3d(pos, text)
+    SetDrawOrigin(pos.x, pos.y, pos.z, 0)
+    SetTextScale(0.0, 0.32)
+    SetTextFont(4)
+    SetTextCentre(true)
+    SetTextOutline()
+    SetTextColour(255, 255, 255, 230)
+    BeginTextCommandDisplayText('STRING')
+    AddTextComponentSubstringPlayerName(text)
+    EndTextCommandDisplayText(0.0, 0.0)
+    ClearDrawOrigin()
 end
 
 local function outline(obj, on)
@@ -352,9 +396,13 @@ local function outline(obj, on)
     end
 end
 
+local function itemName(item)
+    return item.def.label or item.def.id or item.def.model
+end
+
 local function pickUp(item)
     local obj = item.obj
-    local held = {
+    local h = {
         item = item,
         startPos = GetEntityCoords(obj),
         startHeading = GetEntityHeading(obj),
@@ -362,20 +410,20 @@ local function pickUp(item)
         lift = 0.0,
         children = {},
     }
-    -- anything stacked on this prop rides along
     for _, other in ipairs(office.items) do
         if other ~= item and other.def.on and other.def.on == item.def.id then
             local off = GetOffsetFromEntityGivenWorldCoords(obj, GetEntityCoords(other.obj))
             local rel = GetEntityHeading(other.obj) - GetEntityHeading(obj)
             FreezeEntityPosition(other.obj, false)
             AttachEntityToEntity(other.obj, obj, -1, off.x, off.y, off.z, 0.0, 0.0, rel, false, false, false, false, 2, true)
-            held.children[#held.children + 1] = other
+            h.children[#h.children + 1] = other
         end
     end
+    FreezeEntityPosition(obj, true)
     SetEntityCollision(obj, false, false)
     SetEntityAlpha(obj, 210, false)
     outline(obj, true)
-    editing.held = held
+    editing.held = h
 end
 
 local function putDown(restore)
@@ -385,10 +433,13 @@ local function putDown(restore)
     if restore then
         SetEntityCoordsNoOffset(obj, h.startPos.x, h.startPos.y, h.startPos.z, false, false, false)
         SetEntityHeading(obj, h.startHeading)
+    else
+        editing.moved[h.item.key] = h.item
     end
     for _, child in ipairs(h.children) do
         DetachEntity(child.obj, false, false)
         FreezeEntityPosition(child.obj, true)
+        if not restore then editing.moved[child.key] = child end
     end
     SetEntityCollision(obj, true, true)
     ResetEntityAlpha(obj)
@@ -399,16 +450,14 @@ end
 
 local function follow(h)
     local obj = h.item.obj
-    local hit, pos, normal = camRay(obj)
-    if not hit then return end
+    local pos, normal = aimPoint(obj)
+    if not pos then return end
     local min, max = GetModelDimensions(GetEntityModel(obj))
     local x, y, z, heading
     if normal.z > 0.55 then
-        -- floor / desk top: bottom of the model sits on the surface
         heading = h.startHeading + h.rot
         x, y, z = pos.x, pos.y, pos.z - min.z + h.lift
     else
-        -- wall: face away from the wall, back flush against it
         heading = GetHeadingFromVector_2d(normal.x, normal.y) + h.rot
         local c, s = math.cos(math.rad(h.rot)), math.sin(math.rad(h.rot))
         local depth
@@ -468,63 +517,80 @@ local function saveEditor()
         stopEditor()
         return
     end
-    local items = {}
-    for _, item in ipairs(office.items) do items[item.key] = itemTransform(item) end
-    stopEditor()
-    if mode == 'default' then
-        TCC.call('saveDefaultLayout', items)
-    else
-        TCC.call('saveLayout', items)
+    -- only send what was actually moved; everything else keeps following the default
+    local items, n = {}, 0
+    for key, item in pairs(editing.moved) do
+        if DoesEntityExist(item.obj) then items[key] = itemTransform(item) n = n + 1 end
     end
+    stopEditor()
+    if n == 0 then return TCC.notify('Nothing was moved.', 'inform') end
+    TCC.call(mode == 'default' and 'saveDefaultLayout' or 'saveLayout', items)
 end
 
-local HELP = '[E] pick up / put down  ·  [Scroll] rotate  ·  [↑/↓] height  ·  [R] reset  ·  [Backspace] back  ·  [Enter] save'
+local HELP = '[E / Click] pick up · put down  ·  [Scroll] rotate  ·  [↑/↓] height  ·  [Backspace] back  ·  [Enter] save'
 
 function TCC.startEditor(mode)
     if not office then return TCC.notify('Go inside your office first.', 'error') end
     if editing then return end
-    editing = { mode = mode or 'save' }
+    mode = mode or 'save'
+    if mode == 'default' then
+        -- show the plain default layout (without this company's own changes) while editing it
+        local res = lib.callback.await('truckco:server:getDefaultLayout', false)
+        if not res or not res.ok then return TCC.notify(res and res.msg or 'Not allowed.', 'error') end
+        placeFurniture(office.upgrades, next(res.data.items or {}) and res.data.items or false)
+        if (res.data.overrides or 0) > 0 then
+            TCC.notify(('Your own company has moved %d item(s); those keep your company\'s position after saving. Use tablet > Office > Reset to see the default.'):format(res.data.overrides), 'warning')
+        end
+    end
+    editing = { mode = mode, moved = {} }
     lib.showTextUI(HELP, { position = 'top-center', icon = 'couch' })
-    TCC.notify(mode == 'default' and 'Arranging the DEFAULT layout for every office of this type. Enter saves.'
+    TCC.notify(mode == 'default' and 'Editing the DEFAULT layout for every office of this type. Enter saves.'
         or mode == 'config' and 'Furniture editor (config mode): Enter copies config lines.'
-        or 'Arrange your office. Press Enter to save.', 'inform')
+        or 'Aim at a piece of furniture and press E (or click) to pick it up. Enter saves.', 'inform')
+
     CreateThread(function()
         while editing do
-            for _, c in ipairs({ 14, 15, 16, 17, 24, 25, 37, 44, 45, 140, 141, 142, 257, 263 }) do DisableControlAction(0, c, true) end
+            for _, c in ipairs({ 14, 15, 16, 17, 24, 25, 37, 38, 44, 45, 140, 141, 142, 172, 173, 177, 191, 194, 199, 200, 201, 202, 257, 263 }) do
+                DisableControlAction(0, c, true)
+            end
             local h = editing.held
             if h then
-                local step = IsControlPressed(0, 21) and 1.0 or 15.0
-                if IsDisabledControlJustPressed(0, 15) or IsDisabledControlJustPressed(0, 17) then h.rot = h.rot + step end
-                if IsDisabledControlJustPressed(0, 14) or IsDisabledControlJustPressed(0, 16) then h.rot = h.rot - step end
-                if IsControlPressed(0, 172) then h.lift = h.lift + 0.01 end
-                if IsControlPressed(0, 173) then h.lift = h.lift - 0.01 end
+                local step = held(21) and 1.0 or 15.0
+                if pressed(15) or pressed(17) then h.rot = h.rot + step end
+                if pressed(14) or pressed(16) then h.rot = h.rot - step end
+                if held(172) then h.lift = h.lift + 0.01 end
+                if held(173) then h.lift = h.lift - 0.01 end
                 follow(h)
-                if IsControlJustPressed(0, 38) then putDown(false)
-                elseif IsControlJustPressed(0, 177) then putDown(true) end
+                local c = GetEntityCoords(h.item.obj)
+                label3d(vec3(c.x, c.y, c.z + 1.2), ('~o~%s~s~  [E] put down  [Backspace] cancel'):format(itemName(h.item)))
+                if pressed(38) or pressed(24) then
+                    putDown(false)
+                elseif pressed(177) or pressed(194) or pressed(202) then
+                    putDown(true)
+                end
             else
-                local _, _, _, ent = camRay(0)
-                local item = itemFromEntity(ent)
+                local item = aimedItem()
                 if item ~= editing.hover then
                     if editing.hover then outline(editing.hover.obj, false) end
                     if item then outline(item.obj, true) end
                     editing.hover = item
                 end
-                if item and IsControlJustPressed(0, 38) then
+                if item then
+                    local c = GetEntityCoords(item.obj)
+                    label3d(vec3(c.x, c.y, c.z + 1.2), ('[E] move ~o~%s'):format(itemName(item)))
+                end
+                if item and (pressed(38) or pressed(24)) then
+                    outline(item.obj, false)
                     editing.hover = nil
                     pickUp(item)
-                elseif IsControlJustPressed(0, 177) then
-                    -- leave without saving: rebuild from the last saved layout
+                elseif pressed(177) or pressed(194) or pressed(202) then
                     stopEditor()
                     placeFurniture(office.upgrades, office.savedLayout or false)
                     TCC.notify('Changes discarded.', 'inform')
                     break
-                elseif IsDisabledControlJustPressed(0, 45) then
-                    if editing.hover then outline(editing.hover.obj, false) editing.hover = nil end
-                    placeFurniture(office.upgrades, false)
-                    TCC.notify('Reset to the default layout. Press Enter to save it.', 'inform')
                 end
             end
-            if editing and IsControlJustPressed(0, 191) then
+            if editing and (pressed(191) or pressed(201)) then
                 saveEditor()
                 break
             end

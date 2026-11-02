@@ -128,15 +128,23 @@ Furniture editor keys:
 
 | Key | Action |
 |---|---|
-| Look at a prop + **E** | Pick it up / put it down |
+| Aim at a prop + **E** or **left-click** | Pick it up / put it down (it's outlined and labelled when aimed at) |
 | Aim | Props sit on floors and desks, and mount flush on walls (TV / board) |
 | **Scroll** | Rotate (hold **Shift** for 1° steps) |
 | **↑ / ↓** | Raise / lower |
 | **Backspace** | Put the held prop back, or leave without saving |
-| **R** | Reset to the default layout |
 | **Enter** | Save |
 
-Anything stacked on a prop (the laptop on the desk) moves with it.
+Anything stacked on a prop (the laptop on the desk) moves with it. Only the items you actually move are saved; everything else keeps following the default layout. To start over, use *Reset to default*.
+
+### Company garage
+
+Staff (owner, managers, dispatchers and drivers; configurable in `Config.Garage.roles`) can take company trucks out for free driving:
+
+1. Go to the **truck pickup spot** at the yard and use the **Company garage** target (or tablet → **Fleet**), then press **Take out** on an available truck. It spawns at the pickup spot with keys and fuel.
+2. When you're done, drive it to the **truck return spot** and press **E** to park it. You can also use *Park company truck* on the garage target.
+
+Damage is recorded on the truck's condition. A truck that's taken out can't be assigned to loads until it's parked. If it's lost (destroyed, or the driver disconnects), it goes back to the yard and the company pays the recovery fee.
 
 ### Exterior signs
 

@@ -8,6 +8,10 @@
 ]]
 local D = {}
 
+D.Garage = {
+    roles = { manager = true, dispatcher = true, driver = true },
+}
+
 D.Tablet = {
     command = 'trucktablet',   -- opens the company tablet anywhere (set nil to disable)
     allowRemote = true,        -- false = tablet only works inside the office / at the depot

@@ -31,6 +31,7 @@ MySQL.ready(function() CreateThread(function()
 
     -- contracts that were mid-flight with a player when the server stopped go back to "awarded"
     pcall(function() MySQL.update.await("UPDATE truckco_contracts SET status = 'completed' WHERE status = 'delivered'") end)
+    pcall(function() MySQL.update.await("UPDATE truckco_trucks SET status = 'available' WHERE status = 'out'") end)
     pcall(function() MySQL.update.await("UPDATE truckco_contracts SET status = 'awarded', employee_id = NULL, truck_id = NULL, started_at = NULL, driver_kind = NULL WHERE status IN ('assigned','in_progress') AND driver_kind = 'player'") end)
     pcall(function() MySQL.update.await("UPDATE truckco_trucks t LEFT JOIN truckco_contracts c ON c.truck_id = t.id AND c.status IN ('assigned','in_progress') SET t.status = 'available' WHERE t.status IN ('in_use','reserved') AND c.id IS NULL") end)
     pcall(function() MySQL.update.await("UPDATE truckco_employees e LEFT JOIN truckco_contracts c ON c.employee_id = e.id AND c.status IN ('assigned','in_progress') SET e.status = 'idle' WHERE e.status IN ('on_job','assigned') AND c.id IS NULL") end)

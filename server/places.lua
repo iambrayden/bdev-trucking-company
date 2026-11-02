@@ -158,6 +158,7 @@ lib.callback.register('truckco:server:setPlace', function(src, kind, scope)
         g[kind] = { x = round(pos.x), y = round(pos.y), z = round(pos.z), w = round(heading) }
         TC.setSetting(key, g)
         if kind == 'entrance' then TC.broadcastProperties() end
+        TriggerClientEvent('truckco:client:garageChanged', -1)
         return TC.result(true, ('%s for %s saved.'):format(LABEL[kind], Config.Properties[propId].label))
     end
 
@@ -181,6 +182,7 @@ lib.callback.register('truckco:server:setPlace', function(src, kind, scope)
         end
         l.outside[kind] = { x = round(pos.x), y = round(pos.y), z = round(pos.z), w = round(heading) }
         saveCompanyLayout(company)
+        if TC.garageChanged then TC.garageChanged(company.id) end
     end
     return TC.result(true, ('%s saved.'):format(LABEL[kind]))
 end)
@@ -195,7 +197,8 @@ lib.callback.register('truckco:server:saveDefaultLayout', function(src, items)
     local interior = Config.Properties[propId].interior
     local key = 'interior:' .. interior
     local g = TC.settings[key] or {}
-    g.items = clean
+    g.items = g.items or {}
+    for k, v in pairs(clean) do g.items[k] = v end
     TC.setSetting(key, g)
     for _, c in ipairs(TC.getAllCompanies()) do
         if Config.Properties[c.property].interior == interior then TC.refreshOffice(c) end
@@ -216,4 +219,20 @@ end)
 
 lib.callback.register('truckco:server:isAdmin', function(src)
     return TC.isAdmin(src)
+end)
+
+--- Admin: the default furniture layout for the office you're in (without company overrides),
+--- plus how many items the admin's own company has overridden.
+lib.callback.register('truckco:server:getDefaultLayout', function(src)
+    if not TC.isAdmin(src) then return TC.result(false, 'Admins only.') end
+    local propId = TC.inside[src]
+    if not propId then return TC.result(false, 'Stand inside an office.') end
+    local interior = Config.Properties[propId].interior
+    local g = TC.settings['interior:' .. interior] or {}
+    local overrides = 0
+    local company = TC.getMembership(src)
+    if company and type(company.layout) == 'table' and company.layout.interior == interior then
+        for _ in pairs(company.layout.items or {}) do overrides = overrides + 1 end
+    end
+    return TC.result(true, nil, { items = g.items or {}, overrides = overrides })
 end)

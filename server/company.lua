@@ -74,6 +74,7 @@ lib.callback.register('truckco:server:buyProperty', function(src, propertyId, na
     end
     TC.ledger(id, 0, ('Company founded at %s'):format(prop.label))
     TC.broadcastProperties()
+    TriggerClientEvent('truckco:client:garageChanged', src)
     return TC.result(true, ('Welcome to the industry, %s!'):format(name), { companyId = id })
 end)
 
@@ -284,10 +285,12 @@ lib.callback.register('truckco:server:saveLayout', function(src, items)
     local clean = TC.cleanLayoutItems(items)
     if not clean then return TC.result(false, 'Invalid layout.') end
     local l = TC.companyLayoutTable(company)
-    l.items = clean
+    -- merge: only the items that were moved are sent; untouched items keep following the default
+    local n = 0
+    for k, v in pairs(clean) do l.items[k] = v n = n + 1 end
     MySQL.update.await('UPDATE truckco_companies SET layout = ? WHERE id = ?', { json.encode(l), company.id })
     TC.refreshOffice(company)
-    return TC.result(true, 'Office layout saved.')
+    return TC.result(true, n > 0 and ('Office layout saved (%d item%s moved).'):format(n, n == 1 and '' or 's') or 'Nothing was moved.')
 end)
 
 lib.callback.register('truckco:server:tabletAccess', function(src)

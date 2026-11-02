@@ -23,6 +23,7 @@ client_scripts {
     'client/tablet.lua',
     'client/signs.lua',
     'client/runs.lua',
+    'client/garage.lua',
 }
 
 server_scripts {
@@ -36,6 +37,7 @@ server_scripts {
     'server/cad.lua',
     'server/contracts.lua',
     'server/runs.lua',
+    'server/garage.lua',
     'server/dispatch.lua',
     'server/payroll.lua',
     'server/ticks.lua',

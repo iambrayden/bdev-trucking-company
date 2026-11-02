@@ -445,7 +445,7 @@ VIEWS.fleet = async () => {
   if (full && can('fleet')) h += `<div class="banner yellow"><i class="fa-solid fa-warehouse"></i>Yard is full. Buy a Truck Yard Expansion in Office upgrades.</div>`;
   if (!list.length) return h + empty('truck', 'No trucks yet.');
   h += `<div class="grid g3">`;
-  const ST = { available: ['In yard', 'green'], reserved: ['Reserved', 'yellow'], in_use: ['On the road', 'accent'] };
+  const ST = { available: ['In yard', 'green'], reserved: ['Reserved', 'yellow'], in_use: ['On a load', 'accent'], out: ['Taken out', 'blue'] };
   list.forEach((t) => {
     const def = S.cfg.trucks[t.model] || { label: t.model, class: '?' };
     const [st, col] = ST[t.status] || [t.status, ''];
@@ -455,6 +455,7 @@ VIEWS.fleet = async () => {
       <div class="row between mt12 small"><span class="muted">Condition</span><span class="bold">${t.health}%</span></div>
       <div class="bar ${healthColor(t.health)} mt8"><div style="width:${t.health}%"></div></div>
       <div class="kv mt12"><div class="k">Mileage</div><div class="v">${Number(t.mileage).toFixed(1)} km</div><div class="k">Premium</div><div class="v">${money(t.premium)} / payroll</div></div>`;
+    h += `<button class="btn primary sm block mt12" ${free && !S.inOffice ? '' : 'disabled'} ${act(() => post('takeOut', { id: t.id }))}><i class="fa-solid fa-key"></i>${S.inOffice ? 'Take out (go to the yard)' : t.status === 'out' ? 'Taken out' : 'Take out'}</button>`;
     if (can('fleet')) {
       h += `<div class="field mt12" style="margin-bottom:8px"><label>Insurance</label><select class="input" ${onChange(async (el) => {
         const tier = S.cfg.insurance[el.value];

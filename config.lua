@@ -118,6 +118,13 @@ Config.Tablet = {
 }
 
 --------------------------------------------------------------------------------
+-- Company garage (take trucks out of the yard for free driving)
+--------------------------------------------------------------------------------
+Config.Garage = {
+    roles = { manager = true, dispatcher = true, driver = true }, -- owner can always
+}
+
+--------------------------------------------------------------------------------
 -- Exterior signs (company name, placed by owners/managers outside the depot)
 --------------------------------------------------------------------------------
 Config.Signs = {

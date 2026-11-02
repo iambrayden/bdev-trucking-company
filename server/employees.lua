@@ -122,6 +122,7 @@ lib.callback.register('truckco:server:respondOffer', function(src, accept)
         "INSERT INTO truckco_employees (company_id, kind, citizenid, name, role, skill, wage, certs) VALUES (?, 'player', ?, ?, ?, 10, ?, '{}')",
         { company.id, player.PlayerData.citizenid, TC.charName(player), inv.role, inv.wage })
     TC.notifyCompany(company.id, ('%s accepted a position as %s.'):format(TC.charName(player), Config.Roles[inv.role].label), 'success', 'hire')
+    TriggerClientEvent('truckco:client:garageChanged', src)
     return TC.result(true, ('Welcome to %s!'):format(company.name))
 end)
 

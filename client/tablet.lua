@@ -149,6 +149,12 @@ RegisterNUICallback('nuiError', function(data, cb)
     cb(1)
 end)
 
+RegisterNUICallback('takeOut', function(data, cb)
+    cb(1)
+    TCC.closeTablet()
+    TCC.takeOutTruck(tonumber(data.id))
+end)
+
 RegisterNUICallback('placeSigns', function(_, cb)
     cb(1)
     TCC.closeTablet()

@@ -96,6 +96,7 @@ lib.callback.register('truckco:server:startPlayerRun', function(src, contractId)
     for _, r in pairs(TC.runs) do
         if r.src == src then return TC.result(false, 'You are already on a load.') end
     end
+    if TC.garageOutFor and TC.garageOutFor(src) then return TC.result(false, 'Park the company truck you took out first.') end
     local c = TC.getContract(contractId)
     if not c or c.employee_id ~= emp.id or c.status ~= 'assigned' then return TC.result(false, 'That load is not assigned to you.') end
     local truck = MySQL.single.await('SELECT * FROM truckco_trucks WHERE id = ?', { c.truck_id })
