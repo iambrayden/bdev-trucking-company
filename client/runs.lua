@@ -243,6 +243,6 @@ CreateThread(function()
         if type(TCC[fn]) ~= 'function' then missing[#missing + 1] = file end
     end
     if #missing > 0 then
-        print(('^1[truckco] NOT LOADED: %s. Server owner: run "refresh" then "ensure %s".^0'):format(table.concat(missing, ', '), GetCurrentResourceName()))
+        print(('^1[truckco] NOT LOADED: %s. Look for a SCRIPT ERROR line about that file above this. Server owner: replace the whole folder, run "refresh" then "ensure %s".^0'):format(table.concat(missing, ', '), GetCurrentResourceName()))
     end
 end)

@@ -81,7 +81,7 @@ CreateThread(function()
         if type(TC[fn]) ~= 'function' then missing[#missing + 1] = file end
     end
     if #missing > 0 then
-        print(('^1[truckco] NOT LOADED: %s. Run "refresh" then "ensure %s" (FiveM caches fxmanifest.lua), and make sure the whole folder is up to date.^0')
+        print(('^1[truckco] NOT LOADED: %s. Look for a SCRIPT ERROR about that file above. Replace the whole folder, then "refresh" + "ensure %s" (FiveM caches fxmanifest.lua).^0')
             :format(table.concat(missing, ', '), GetCurrentResourceName()))
     else
         print(('^2[truckco] %s v%s loaded^0'):format(GetCurrentResourceName(), GetResourceMetadata(GetCurrentResourceName(), 'version', 0) or '?'))

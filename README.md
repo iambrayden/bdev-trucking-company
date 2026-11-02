@@ -171,6 +171,7 @@ Uncomment the `office_shell` example in `Config.Interiors`, set its `model` to y
   ensure bdev-trucking-company
   ```
   FiveM caches `fxmanifest.lua` until you `refresh`. A plain `restart` / `ensure` silently skips any newly added files, and you get errors like `attempt to call a nil value (field 'openTablet')`.
+- **Keeping your own `config.lua` is fine.** Anything an older config is missing is filled in from `shared/defaults.lua`, and the server console lists which sections were filled so you can copy them over.
 - On start the server console prints `bdev-trucking-company v… loaded`, or `NOT LOADED: <files>` if something was skipped.
 - Blips and door targets come from the config immediately. If they're missing, the client script itself didn't load, so check F8.
 

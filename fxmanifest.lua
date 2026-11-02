@@ -12,6 +12,7 @@ shared_scripts {
     '@ox_lib/init.lua',
     '@qbx_core/modules/lib.lua',
     'config.lua',
+    'shared/defaults.lua',
     'shared/utils.lua',
 }
 
