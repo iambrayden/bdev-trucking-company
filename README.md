@@ -161,7 +161,7 @@ Stand outside your depot: tablet → **Office** → **Place signs**.
 | Aim | A preview sign follows your aim (red label = too far from the depot) |
 | **E** or **left-click** | Place a new sign at the preview, or pick up the sign you're aiming at / put it down |
 | **Scroll** | Rotate (Shift = fine) |
-| **↑ / ↓** | Raise / lower the sign (posts stretch to match; Shift = fine) |
+| **↑ / ↓** | Pole height: raise / lower the panel; the posts always reach the ground (Shift = fine) |
 | **Q** | Change style |
 | **X** | Delete the held sign |
 | **Backspace** | Put it back / leave without saving |

@@ -87,33 +87,63 @@ local function panelFallback(lx, ly, qx, qy, z0, z1, alpha)
     DrawPoly(lx, ly, z0, lx, ly, z1, qx, qy, z1, 22, 24, 29, alpha)
 end
 
+--- Ground height under a point (top surface below z + 1.5m). nil if not streamed yet.
+local function groundAt(x, y, z)
+    local found, gz = GetGroundZFor_3dCoord(x, y, z + 1.5, false)
+    if found and gz > z - 8.0 then return gz end
+    return nil
+end
+
+--- Cached ground height for each post of a sign (recomputed if the sign moves).
+local function postGround(it, idx, px, py)
+    it._g = it._g or {}
+    local key = ('%.2f,%.2f,%.2f'):format(px, py, it.z)
+    local c = it._g[idx]
+    if not c or c.key ~= key then
+        local gz = groundAt(px, py, it.z)
+        if not gz then return it.z end -- not streamed in yet; try again next frame
+        c = { key = key, z = gz }
+        it._g[idx] = c
+    end
+    return c.z
+end
+
 local function drawSign(name, it, alpha)
     local h = math.rad(it.h)
     local rx, ry = math.cos(h), math.sin(h)        -- right
     local fx, fy = -math.sin(h), math.cos(h)       -- forward (sign faces this way)
     local hw, ht = cfg.size.width / 2, cfg.size.height
-    local z0 = it.z + cfg.size.postHeight + (it.lift or 0.0) -- raising a sign stretches its posts
+    local z0 = it.z + cfg.size.postHeight + (it.lift or 0.0) -- pole height: panel goes up, poles reach down to the ground
     local z1 = z0 + ht
-    post(it.x - rx * (hw - 0.4), it.y - ry * (hw - 0.4), it.z, z1 - 0.05)
-    post(it.x + rx * (hw - 0.4), it.y + ry * (hw - 0.4), it.z, z1 - 0.05)
+    -- posts: each one runs from the ground under it up to the top of the panel
+    local p1x, p1y = it.x - rx * (hw - 0.4), it.y - ry * (hw - 0.4)
+    local p2x, p2y = it.x + rx * (hw - 0.4), it.y + ry * (hw - 0.4)
+    post(p1x, p1y, postGround(it, 1, p1x, p1y) - 0.05, z1 - 0.05)
+    post(p2x, p2y, postGround(it, 2, p2x, p2y) - 0.05, z1 - 0.05)
+
+    -- draw only the face pointing at the camera (no mirrored text showing through)
+    local cam = GetFinalRenderedCamCoord()
+    local side = ((cam.x - it.x) * fx + (cam.y - it.y) * fy) >= 0 and 1 or 2
+    local o = side == 1 and 0.03 or -0.03
+    local cx, cy = it.x + fx * o, it.y + fy * o
+    -- (lx,ly) = where the LEFT edge of the text goes, as seen by the viewer.
+    -- Facing the sign from the front you look along -forward, so your left is +right; from behind it's -right.
+    local lx, ly = cx + rx * hw, cy + ry * hw
+    local qx, qy = cx - rx * hw, cy - ry * hw
+    if side == 2 then lx, ly, qx, qy = qx, qy, lx, ly end
+
     local txd = texturedOk and texture(name, it.style or cfg.styles[1].id) or nil
-    for side = 1, 2 do
-        -- front face slightly in front, back face slightly behind with mirrored U so text reads from both sides
-        local o = side == 1 and 0.03 or -0.03
-        local cx, cy = it.x + fx * o, it.y + fy * o
-        local lx, ly = cx - rx * hw, cy - ry * hw
-        local qx, qy = cx + rx * hw, cy + ry * hw
-        if side == 2 then lx, ly, qx, qy = qx, qy, lx, ly end
-        if txd then
-            DrawPolyTex(lx, ly, z0, qx, qy, z0, qx, qy, z1, 255, 255, 255, alpha, txd, 'sign', 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0)
-            DrawPolyTex(lx, ly, z0, qx, qy, z1, lx, ly, z1, 255, 255, 255, alpha, txd, 'sign', 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0)
-            DrawPolyTex(lx, ly, z0, qx, qy, z1, qx, qy, z0, 255, 255, 255, alpha, txd, 'sign', 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0)
-            DrawPolyTex(lx, ly, z0, lx, ly, z1, qx, qy, z1, 255, 255, 255, alpha, txd, 'sign', 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0)
-        else
-            panelFallback(lx, ly, qx, qy, z0, z1, alpha)
-        end
-    end
-    if not txd then
+    if txd then
+        -- dark backing first (just behind the face) so nothing behind the sign shows through
+        local bx, by = it.x - fx * o, it.y - fy * o
+        panelFallback(bx - rx * hw, by - ry * hw, bx + rx * hw, by + ry * hw, z0, z1, 255)
+        -- then the face; both windings so it shows regardless of culling
+        DrawPolyTex(lx, ly, z0, qx, qy, z0, qx, qy, z1, 255, 255, 255, alpha, txd, 'sign', 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0)
+        DrawPolyTex(lx, ly, z0, qx, qy, z1, lx, ly, z1, 255, 255, 255, alpha, txd, 'sign', 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0)
+        DrawPolyTex(lx, ly, z0, qx, qy, z1, qx, qy, z0, 255, 255, 255, alpha, txd, 'sign', 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0)
+        DrawPolyTex(lx, ly, z0, lx, ly, z1, qx, qy, z1, 255, 255, 255, alpha, txd, 'sign', 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0)
+    else
+        panelFallback(lx, ly, qx, qy, z0, z1, alpha)
         text3d(it.x, it.y, (z0 + z1) / 2, name, 0.6)
     end
 end
@@ -153,7 +183,7 @@ CreateThread(function()
                 for i, it in ipairs(editor.items) do
                     if i ~= editor.heldIndex then safeDraw(editor.name, it, 255) end
                 end
-                if editor.preview then safeDraw(editor.name, editor.preview, 150) end
+                if editor.preview then safeDraw(editor.name, editor.preview, 255) end
                 sleep = 0
             end
             local now = GetGameTimer()
@@ -212,7 +242,10 @@ local function groundAim(fallbackZ)
     local dest = camPos + dir * 60.0
     local ray = StartExpensiveSynchronousShapeTestLosProbe(camPos.x, camPos.y, camPos.z, dest.x, dest.y, dest.z, 1 | 16, cache.ped, 4)
     local _, hit, pos, normal = GetShapeTestResult(ray)
-    if hit == 1 and normal.z > 0.5 then return pos end
+    if hit == 1 and normal.z > 0.5 then
+        local gz = groundAt(pos.x, pos.y, pos.z)
+        return gz and vec3(pos.x, pos.y, gz) or pos
+    end
     if hit == 1 then
         -- hit a wall/object: drop to the ground below that point
         local found, gz = GetGroundZFor_3dCoord(pos.x, pos.y, pos.z + 1.0, false)
@@ -229,7 +262,7 @@ local function styleIndex(id)
     return 1
 end
 
-local HELP = '[E / Click] place · pick up  ·  [Scroll] rotate  ·  [↑/↓] height  ·  [Q] style  ·  [X] delete  ·  [Backspace] back  ·  [Enter] save'
+local HELP = '[E / Click] place · pick up  ·  [Scroll] rotate  ·  [↑/↓] pole height  ·  [Q] style  ·  [X] delete  ·  [Backspace] back  ·  [Enter] save'
 local MIN_LIFT, MAX_LIFT = -1.0, 12.0
 
 function TCC.startSignEditor()
@@ -291,10 +324,10 @@ function TCC.startSignEditor()
             if aim then
                 local label
                 if not inRange then label = '~r~Too far from the depot'
-                elseif editor.heldIndex then label = ('[E] put down  ~c~[↑/↓] height %+.1fm  [X] delete  [Backspace] put back'):format(editor.lift)
+                elseif editor.heldIndex then label = ('[E] put down  ~c~[↑/↓] pole height %+.1fm  [X] delete  [Backspace] put back'):format(editor.lift)
                 elseif target then label = '[E] move this sign'
                 elseif #editor.items >= cfg.max then label = ('~r~Limit reached (%d). Aim at a sign to move it.'):format(cfg.max)
-                else label = ('[E] place sign  ~c~(%d/%d)  [↑/↓] height %+.1fm'):format(#editor.items, cfg.max, editor.lift) end
+                else label = ('[E] place sign  ~c~(%d/%d)  [↑/↓] pole height %+.1fm'):format(#editor.items, cfg.max, editor.lift) end
                 local lz = editor.preview and (editor.preview.z + cfg.size.postHeight + (editor.preview.lift or 0) + cfg.size.height + 0.4) or (aim.z + 1.0)
                 text3d(aim.x, aim.y, lz, label, 0.35)
             end
