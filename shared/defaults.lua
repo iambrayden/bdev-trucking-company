@@ -8,6 +8,10 @@
 ]]
 local D = {}
 
+-- (economy settings added in 1.3; older configs get these)
+D.EconomyExtra = { fuelPerKm = 12, loadFee = 150, npcOperatingMult = 1.5, hourlySoftCap = 75000, overCapPayMult = 0.3 }
+D.NPCExtra = { loadMinutes = 5, stopMinutes = 3 }
+
 D.Bonus = { max = 50000 }
 D.Loans = { minReputation = 20, baseLimit = 75000, perRep = 3000, interest = 0.15, installments = 10, maxActive = 1 }
 D.CollectionPoints = {
@@ -124,11 +128,11 @@ D.Certifications = {
 }
 
 D.NPC = {
-    hireFee = 1500,               -- recruiter fee per NPC hire
+    hireFee = 3000,               -- recruiter fee per NPC hire
     candidates = 6,               -- applicants shown at once
     refreshMinutes = 30,          -- applicant pool refresh
-    wagePerSkill = 12,            -- asked wage = role min + skill * this
-    kmPerMinute = 1.2,            -- simulated NPC driving speed
+    wagePerSkill = 15,            -- asked wage = role min + skill * this
+    kmPerMinute = 0.8,            -- simulated NPC driving speed
     accidentBase = 0.10,          -- accident chance at skill 0 and 100% truck condition
     accidentSkillReduce = 0.08,   -- skill 100 removes this much chance
     accidentConditionAdd = 0.10,  -- condition 0 adds this much chance
@@ -150,28 +154,28 @@ D.Trucks = {
 
 D.Fleet = {
     platePrefix = 'TC',
-    repairCostPerPoint = 0.0015, -- * truck price per condition point
+    repairCostPerPoint = 0.0018, -- * truck price per condition point
     minDispatchCondition = 25,   -- trucks below this can't take loads
-    wearPerKm = 0.25,            -- condition lost per km driven
+    wearPerKm = 0.3,            -- condition lost per km driven
     sellRefund = 0.5,
 }
 
 D.Insurance = {
     none  = { label = 'Uninsured',     premiumPct = 0.0,   coverage = 0.0, deductible = 0 },
-    basic = { label = 'Basic Cover',   premiumPct = 0.004, coverage = 0.5, deductible = 2500 },
-    full  = { label = 'Comprehensive', premiumPct = 0.009, coverage = 0.9, deductible = 1000 },
+    basic = { label = 'Basic Cover',   premiumPct = 0.003, coverage = 0.5, deductible = 2500 },
+    full  = { label = 'Comprehensive', premiumPct = 0.006, coverage = 0.9, deductible = 1000 },
 }
 
 D.Cargo = {
     parcels   = { label = 'Parcels',              class = 'box',  certs = {},                         payMult = 0.8, minRep = 0 },
     furniture = { label = 'Furniture',            class = 'box',  certs = {},                         payMult = 0.9, minRep = 0 },
     general   = { label = 'General Freight',      class = 'semi', certs = { 'cdl' },                  payMult = 1.0, minRep = 0,  trailers = { 'trailers', 'trailers2' } },
-    produce   = { label = 'Refrigerated Produce', class = 'semi', certs = { 'cdl' },                  payMult = 1.15, minRep = 10, trailers = { 'trailers3' } },
-    logs      = { label = 'Timber',               class = 'semi', certs = { 'cdl' },                  payMult = 1.2, minRep = 15, trailers = { 'trailerlogs' } },
-    vehicles  = { label = 'Vehicle Transport',    class = 'semi', certs = { 'cdl' },                  payMult = 1.4, minRep = 25, trailers = { 'tr4' } },
-    machinery = { label = 'Heavy Machinery',      class = 'semi', certs = { 'cdl', 'oversize' },      payMult = 1.6, minRep = 30, trailers = { 'trflat' } },
-    fuel      = { label = 'Fuel',                 class = 'semi', certs = { 'cdl', 'tanker', 'hazmat' }, payMult = 1.9, minRep = 40, trailers = { 'tanker', 'tanker2' } },
-    chemicals = { label = 'Industrial Chemicals', class = 'semi', certs = { 'cdl', 'hazmat' },        payMult = 2.2, minRep = 60, trailers = { 'tanker' } },
+    produce   = { label = 'Refrigerated Produce', class = 'semi', certs = { 'cdl' },                  payMult = 1.1, minRep = 10, trailers = { 'trailers3' } },
+    logs      = { label = 'Timber',               class = 'semi', certs = { 'cdl' },                  payMult = 1.15, minRep = 15, trailers = { 'trailerlogs' } },
+    vehicles  = { label = 'Vehicle Transport',    class = 'semi', certs = { 'cdl' },                  payMult = 1.25, minRep = 25, trailers = { 'tr4' } },
+    machinery = { label = 'Heavy Machinery',      class = 'semi', certs = { 'cdl', 'oversize' },      payMult = 1.35, minRep = 30, trailers = { 'trflat' } },
+    fuel      = { label = 'Fuel',                 class = 'semi', certs = { 'cdl', 'tanker', 'hazmat' }, payMult = 1.5, minRep = 40, trailers = { 'tanker', 'tanker2' } },
+    chemicals = { label = 'Industrial Chemicals', class = 'semi', certs = { 'cdl', 'hazmat' },        payMult = 1.65, minRep = 60, trailers = { 'tanker' } },
 }
 
 D.Pickups = {
@@ -202,9 +206,9 @@ D.Board = {
     generateEvery = 60,           -- seconds between generation passes
     bidWindow = { 180, 420 },     -- seconds a contract accepts bids
     acceptWindow = 600,           -- seconds after award to get the load moving
-    ratePerKm = 350,
+    ratePerKm = 200,
     roadFactor = 1.35,            -- straight-line -> road distance
-    minPay = 2500,
+    minPay = 1200,
     minBidPct = 0.4,              -- lowest allowed bid (% of max pay)
     marketBid = { 0.72, 0.98 },   -- hidden rival bid range (% of max pay)
     repAdvantage = 500,           -- effective bid = bid * (1 - (rep-50)/this)
@@ -213,8 +217,8 @@ D.Board = {
     latePenalty = 0.35,           -- payout lost when late
     failPenalty = 0.5,            -- % of contract charged when a load is lost/abandoned
     repOnTime = 2, repLate = -1, repFail = -4,
-    multiStopChance = 0.3, multiStopMax = 3, multiStopBonus = 0.25,
-    expressChance = 0.15, expressPayMult = 1.5, expressDeadlineMult = 0.6,
+    multiStopChance = 0.25, multiStopMax = 3, multiStopBonus = 0.10,
+    expressChance = 0.12, expressPayMult = 1.25, expressDeadlineMult = 0.6,
 }
 
 D.Runs = {
@@ -261,6 +265,14 @@ local function fill(dst, src, path)
 end
 
 Config = Config or {}
+-- merge the "*Extra" helper sections into their real sections first
+for name, extra in pairs({ Economy = D.EconomyExtra, NPC = D.NPCExtra }) do
+    Config[name] = Config[name] or {}
+    for k, v in pairs(extra) do
+        if Config[name][k] == nil then Config[name][k] = v filled[#filled + 1] = ('Config.%s.%s'):format(name, k) end
+    end
+end
+D.EconomyExtra, D.NPCExtra = nil, nil
 for name, section in pairs(D) do
     if Config[name] == nil then
         Config[name] = section

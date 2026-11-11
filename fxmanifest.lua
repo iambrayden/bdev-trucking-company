@@ -6,7 +6,7 @@ use_experimental_fxv2_oal 'yes'
 name 'bdev-trucking-company'
 author 'bdev'
 description 'Player-owned trucking companies for Qbox: offices, employees (NPC + players), fleet, insurance, bid board and automated dispatch'
-version '1.2.0'
+version '1.3.0'
 
 shared_scripts {
     '@ox_lib/init.lua',

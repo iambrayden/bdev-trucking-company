@@ -26,7 +26,7 @@ Config.Properties = {
     elysian_depot = {
         label = 'Elysian Island Freight Depot',
         price = 450000,
-        upkeep = 1500,                                   -- charged every payroll cycle
+        upkeep = 2000,                                   -- charged every payroll cycle
         entrance = vec4(153.68, -3211.88, 5.91, 270.0),  -- where you walk in
         truckSpawn = vec4(141.12, -3204.31, 5.85, 267.5),-- where company trucks are pulled out
         truckReturn = vec3(137.5, -3190.0, 5.86),        -- where trucks are dropped back off
@@ -35,7 +35,7 @@ Config.Properties = {
     terminal_yard = {
         label = 'Terminal Logistics Yard',
         price = 650000,
-        upkeep = 2200,
+        upkeep = 3000,
         entrance = vec4(1197.07, -3253.62, 7.10, 90.0),
         truckSpawn = vec4(1184.50, -3243.80, 6.03, 90.0),
         truckReturn = vec3(1172.0, -3236.0, 6.03),
@@ -44,7 +44,7 @@ Config.Properties = {
     pier_400 = {
         label = 'Pier 400 Haulage',
         price = 325000,
-        upkeep = 1100,
+        upkeep = 1500,
         entrance = vec4(-246.20, -2654.30, 6.00, 0.0),
         truckSpawn = vec4(-232.40, -2660.10, 6.00, 0.0),
         truckReturn = vec3(-222.0, -2668.0, 6.00),
@@ -230,11 +230,13 @@ Config.Certifications = {
 }
 
 Config.NPC = {
-    hireFee = 1500,               -- recruiter fee per NPC hire
+    hireFee = 3000,               -- recruiter fee per NPC hire
     candidates = 6,               -- applicants shown at once
     refreshMinutes = 30,          -- applicant pool refresh
-    wagePerSkill = 12,            -- asked wage = role min + skill * this
-    kmPerMinute = 1.2,            -- simulated NPC driving speed
+    wagePerSkill = 15,            -- asked wage = role min + skill * this
+    kmPerMinute = 0.8,            -- simulated NPC driving speed
+    loadMinutes = 5,              -- NPC time to load / unload a run
+    stopMinutes = 3,              -- extra NPC time per multi-stop collection stop
     accidentBase = 0.10,          -- accident chance at skill 0 and 100% truck condition
     accidentSkillReduce = 0.08,   -- skill 100 removes this much chance
     accidentConditionAdd = 0.10,  -- condition 0 adds this much chance
@@ -260,16 +262,16 @@ Config.Trucks = {
 
 Config.Fleet = {
     platePrefix = 'TC',
-    repairCostPerPoint = 0.0015, -- * truck price per condition point
+    repairCostPerPoint = 0.0018, -- * truck price per condition point
     minDispatchCondition = 25,   -- trucks below this can't take loads
-    wearPerKm = 0.25,            -- condition lost per km driven
+    wearPerKm = 0.3,             -- condition lost per km driven
     sellRefund = 0.5,
 }
 
 Config.Insurance = {
     none  = { label = 'Uninsured',     premiumPct = 0.0,   coverage = 0.0, deductible = 0 },
-    basic = { label = 'Basic Cover',   premiumPct = 0.004, coverage = 0.5, deductible = 2500 },
-    full  = { label = 'Comprehensive', premiumPct = 0.009, coverage = 0.9, deductible = 1000 },
+    basic = { label = 'Basic Cover',   premiumPct = 0.003, coverage = 0.5, deductible = 2500 },
+    full  = { label = 'Comprehensive', premiumPct = 0.006, coverage = 0.9, deductible = 1000 },
 }
 
 --------------------------------------------------------------------------------
@@ -279,18 +281,18 @@ Config.Cargo = {
     parcels   = { label = 'Parcels',              class = 'box',  certs = {},                         payMult = 0.8, minRep = 0 },
     furniture = { label = 'Furniture',            class = 'box',  certs = {},                         payMult = 0.9, minRep = 0 },
     general   = { label = 'General Freight',      class = 'semi', certs = { 'cdl' },                  payMult = 1.0, minRep = 0,  trailers = { 'trailers', 'trailers2' } },
-    produce   = { label = 'Refrigerated Produce', class = 'semi', certs = { 'cdl' },                  payMult = 1.15, minRep = 10, trailers = { 'trailers3' } },
-    logs      = { label = 'Timber',               class = 'semi', certs = { 'cdl' },                  payMult = 1.2, minRep = 15, trailers = { 'trailerlogs' } },
-    vehicles  = { label = 'Vehicle Transport',    class = 'semi', certs = { 'cdl' },                  payMult = 1.4, minRep = 25, trailers = { 'tr4' } },
-    machinery = { label = 'Heavy Machinery',      class = 'semi', certs = { 'cdl', 'oversize' },      payMult = 1.6, minRep = 30, trailers = { 'trflat' } },
-    fuel      = { label = 'Fuel',                 class = 'semi', certs = { 'cdl', 'tanker', 'hazmat' }, payMult = 1.9, minRep = 40, trailers = { 'tanker', 'tanker2' } },
-    chemicals = { label = 'Industrial Chemicals', class = 'semi', certs = { 'cdl', 'hazmat' },        payMult = 2.2, minRep = 60, trailers = { 'tanker' } },
+    produce   = { label = 'Refrigerated Produce', class = 'semi', certs = { 'cdl' },                  payMult = 1.1, minRep = 10, trailers = { 'trailers3' } },
+    logs      = { label = 'Timber',               class = 'semi', certs = { 'cdl' },                  payMult = 1.15, minRep = 15, trailers = { 'trailerlogs' } },
+    vehicles  = { label = 'Vehicle Transport',    class = 'semi', certs = { 'cdl' },                  payMult = 1.25, minRep = 25, trailers = { 'tr4' } },
+    machinery = { label = 'Heavy Machinery',      class = 'semi', certs = { 'cdl', 'oversize' },      payMult = 1.35, minRep = 30, trailers = { 'trflat' } },
+    fuel      = { label = 'Fuel',                 class = 'semi', certs = { 'cdl', 'tanker', 'hazmat' }, payMult = 1.5, minRep = 40, trailers = { 'tanker', 'tanker2' } },
+    chemicals = { label = 'Industrial Chemicals', class = 'semi', certs = { 'cdl', 'hazmat' },        payMult = 1.65, minRep = 60, trailers = { 'tanker' } },
     -- premium tier: high reputation + certifications, big money
-    electronics = { label = 'High-Value Electronics', class = 'box',  certs = {},                      payMult = 1.7, minRep = 35 },
-    pharma      = { label = 'Pharmaceuticals',        class = 'box',  certs = { 'cdl', 'hazmat' },    payMult = 2.1, minRep = 45 },
-    exotics     = { label = 'Exotic Car Transport',   class = 'semi', certs = { 'cdl' },              payMult = 2.5, minRep = 55, trailers = { 'tr4' } },
-    turbine     = { label = 'Wind Turbine Blades',    class = 'semi', certs = { 'cdl', 'oversize' },  payMult = 3.0, minRep = 70, trailers = { 'trflat' } },
-    explosives  = { label = 'Mining Explosives',      class = 'semi', certs = { 'cdl', 'hazmat' },    payMult = 3.4, minRep = 80, trailers = { 'trailers2' } },
+    electronics = { label = 'High-Value Electronics', class = 'box',  certs = {},                      payMult = 1.3, minRep = 35 },
+    pharma      = { label = 'Pharmaceuticals',        class = 'box',  certs = { 'cdl', 'hazmat' },    payMult = 1.5, minRep = 45 },
+    exotics     = { label = 'Exotic Car Transport',   class = 'semi', certs = { 'cdl' },              payMult = 1.7, minRep = 55, trailers = { 'tr4' } },
+    turbine     = { label = 'Wind Turbine Blades',    class = 'semi', certs = { 'cdl', 'oversize' },  payMult = 1.9, minRep = 70, trailers = { 'trflat' } },
+    explosives  = { label = 'Mining Explosives',      class = 'semi', certs = { 'cdl', 'hazmat' },    payMult = 2.1, minRep = 80, trailers = { 'trailers2' } },
 }
 
 -- Extra collection points used by multi-stop jobs (any spot a truck can reach)
@@ -334,9 +336,9 @@ Config.Board = {
     generateEvery = 60,           -- seconds between generation passes
     bidWindow = { 180, 420 },     -- seconds a contract accepts bids
     acceptWindow = 600,           -- seconds after award to get the load moving
-    ratePerKm = 350,
+    ratePerKm = 200,
     roadFactor = 1.35,            -- straight-line -> road distance
-    minPay = 2500,
+    minPay = 1200,
     minBidPct = 0.4,              -- lowest allowed bid (% of max pay)
     marketBid = { 0.72, 0.98 },   -- hidden rival bid range (% of max pay)
     repAdvantage = 500,           -- effective bid = bid * (1 - (rep-50)/this)
@@ -346,12 +348,12 @@ Config.Board = {
     failPenalty = 0.5,            -- % of contract charged when a load is lost/abandoned
     repOnTime = 2, repLate = -1, repFail = -4,
     -- multi-stop collection runs
-    multiStopChance = 0.3,        -- share of new contracts that have extra collection stops
+    multiStopChance = 0.25,        -- share of new contracts that have extra collection stops
     multiStopMax = 3,             -- extra stops (1..this) between pickup and drop-off
-    multiStopBonus = 0.25,        -- +25% pay per extra stop (on top of the longer distance)
+    multiStopBonus = 0.10,        -- +10% pay per extra stop (on top of the longer distance)
     -- express contracts: tight deadline, better pay
-    expressChance = 0.15,
-    expressPayMult = 1.5,
+    expressChance = 0.12,
+    expressPayMult = 1.25,
     expressDeadlineMult = 0.6,
 }
 
@@ -382,6 +384,14 @@ Config.Payroll = {
 Config.Economy = {
     startingBalance = 0,
     propertyRefund = 0.6,
+    -- running costs charged on every delivered load
+    fuelPerKm = 12,               -- fuel cost per km of the route
+    loadFee = 150,                -- tolls / permits per load
+    npcOperatingMult = 1.5,       -- agency NPC drivers burn more fuel
+    -- market saturation: once a company has earned this much from deliveries in the
+    -- last hour, further loads only pay overCapPayMult of their value (0 = off)
+    hourlySoftCap = 75000,
+    overCapPayMult = 0.3,
 }
 
 -- Bonuses owners/managers can give player employees (paid from company funds)

@@ -340,20 +340,45 @@ end
 --- @param opts { damage: number? } damage 0..1 of the cargo
 --- @return number payout, boolean late
 function TC.payContract(c, opts)
+    local E = Config.Economy
     local now = TC.now()
     local late = c.deadline and now > c.deadline
     local pay = c.award_amount or 0
     if late then pay = pay * (1 - Config.Board.latePenalty) end
     local damage = TCShared.clamp((opts and opts.damage) or 0, 0, 1)
     pay = math.floor(pay * (1 - damage * 0.8))
-    TC.addFunds(c.company_id, pay, ('Load #%d delivered%s%s'):format(
-        c.id, late and ' (late)' or '', damage > 0.05 and (' (%d%% cargo damage)'):format(math.floor(damage * 100)) or ''))
+
+    -- market saturation: past the hourly soft cap a company's loads pay much less
+    local saturated = false
+    if (E.hourlySoftCap or 0) > 0 then
+        local earned = MySQL.scalar.await(
+            "SELECT COALESCE(SUM(amount), 0) FROM truckco_ledger WHERE company_id = ? AND amount > 0 AND reason LIKE 'Load #%' AND created_at > (NOW() - INTERVAL 1 HOUR)",
+            { c.company_id }) or 0
+        local room = math.max(0, E.hourlySoftCap - earned)
+        if pay > room then
+            pay = math.floor(room + (pay - room) * (E.overCapPayMult or 0.3))
+            saturated = true
+        end
+    end
+
+    TC.addFunds(c.company_id, pay, ('Load #%d delivered%s%s%s'):format(
+        c.id, late and ' (late)' or '', damage > 0.05 and (' (%d%% cargo damage)'):format(math.floor(damage * 100)) or '',
+        saturated and ' (market saturated)' or ''))
+
+    -- running costs: fuel per km (agency NPC drivers cost more) + tolls / permits per load
+    local npc = c.driver_kind == 'npc'
+    local fuel = math.floor((c.distance or 0) * (E.fuelPerKm or 0) * (npc and (E.npcOperatingMult or 1) or 1))
+    local ops = fuel + (E.loadFee or 0)
+    if ops > 0 then
+        TC.spend(c.company_id, ops, ('Fuel & tolls load #%d'):format(c.id), true, true)
+    end
+
     TC.adjustRep(c.company_id, late and Config.Board.repLate or Config.Board.repOnTime)
     if c.employee_id then
         MySQL.update.await('UPDATE truckco_employees SET jobs_done = jobs_done + 1, skill = LEAST(100, skill + ?) WHERE id = ?',
             { Config.NPC.skillPerJob, c.employee_id })
     end
-    return pay, late
+    return pay, late, saturated, ops
 end
 
 --- Mark a contract failed and bill the company the liability penalty.

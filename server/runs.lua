@@ -4,6 +4,7 @@
 function TC.startNpcRun(company, contract, driver, truck, by)
     local cfg = Config.NPC
     local minutes = contract.distance / cfg.kmPerMinute
+        + (cfg.loadMinutes or 0) + (cfg.stopMinutes or 0) * #(contract.stops or {})
     minutes = minutes * (1.15 - driver.skill / 500) * (0.9 + math.random() * 0.2)
     minutes = minutes * (1 + (100 - truck.health) / 400) -- beat-up trucks are slower
     local now = TC.now()
@@ -42,15 +43,16 @@ local function finishNpcRun(c)
     end
 
     MySQL.update.await("UPDATE truckco_contracts SET status = 'completed', finished_at = ? WHERE id = ?", { TC.now(), c.id })
-    local pay, late = TC.payContract(c, { damage = accident and 0.15 or 0 })
+    local pay, late, saturated, ops = TC.payContract(c, { damage = accident and 0.15 or 0 })
     if truck then
         MySQL.update.await("UPDATE truckco_trucks SET status = 'available', health = GREATEST(0, health - ?), mileage = mileage + ? WHERE id = ?",
             { math.floor(wear + 0.5), c.distance, truck.id })
     end
     if driver then MySQL.update.await("UPDATE truckco_employees SET status = 'idle' WHERE id = ?", { driver.id }) end
-    TC.notifyCompany(c.company_id, ('%s delivered load #%d%s%s. +%s'):format(
+    TC.notifyCompany(c.company_id, ('%s delivered load #%d%s%s. +%s (fuel & tolls -%s)%s'):format(
         driver and driver.name or 'Driver', c.id, late and ' late' or '', accident and ' after a fender-bender' or '',
-        TCShared.money(pay)), late and 'warning' or 'success', 'assign')
+        TCShared.money(pay), TCShared.money(ops or 0), saturated and ' - market saturated, loads pay less this hour' or ''),
+        late and 'warning' or 'success', 'assign')
 end
 
 function TC.tickNpcRuns()
@@ -251,7 +253,7 @@ lib.callback.register('truckco:server:deliver', function(src, contractId)
     if run.class == 'semi' then TC.deleteNet(run.trailerNet) run.trailerNet = nil end
 
     MySQL.update.await("UPDATE truckco_contracts SET status = 'delivered', finished_at = ? WHERE id = ?", { TC.now(), c.id })
-    local pay, late = TC.payContract(c, { damage = damage })
+    local pay, late, saturated = TC.payContract(c, { damage = damage })
 
     -- player driver commission (company pays it to the driver)
     local commission = math.floor(pay * Config.Runs.driverCommission)
@@ -269,8 +271,8 @@ lib.callback.register('truckco:server:deliver', function(src, contractId)
     run.deliveredAt = TC.now()
     TC.notifyCompany(run.companyId, ('Load #%d delivered by %s%s. +%s'):format(c.id, GetPlayerName(src), late and ' (late)' or '', TCShared.money(pay)),
         late and 'warning' or 'success', 'assign')
-    return TC.result(true, ('Delivered%s! Company earned %s%s. Return the truck to the yard.'):format(
-        late and ' late' or '', TCShared.money(pay),
+    return TC.result(true, ('Delivered%s! Company earned %s%s%s. Return the truck to the yard.'):format(
+        late and ' late' or '', TCShared.money(pay), saturated and ' (market saturated this hour)' or '',
         commission > 0 and (', your cut: %s'):format(TCShared.money(commission)) or ''))
 end)
 

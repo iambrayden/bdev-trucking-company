@@ -87,3 +87,20 @@ CreateThread(function()
         print(('^2[truckco] %s v%s loaded^0'):format(GetCurrentResourceName(), GetResourceMetadata(GetCurrentResourceName(), 'version', 0) or '?'))
     end
 end)
+
+-- Economy check: warn when a server still runs the old (very generous) pay settings
+CreateThread(function()
+    Wait(2500)
+    local B, E = Config.Board, Config.Economy
+    local issues = {}
+    if (B.ratePerKm or 0) > 250 then issues[#issues + 1] = ('Config.Board.ratePerKm = %s (recommended 200)'):format(B.ratePerKm) end
+    if (B.minPay or 0) > 1500 then issues[#issues + 1] = ('Config.Board.minPay = %s (recommended 1200)'):format(B.minPay) end
+    if (Config.NPC.kmPerMinute or 0) > 1.0 then issues[#issues + 1] = ('Config.NPC.kmPerMinute = %s (recommended 0.8)'):format(Config.NPC.kmPerMinute) end
+    local maxMult = 0
+    for _, c in pairs(Config.Cargo) do maxMult = math.max(maxMult, c.payMult or 0) end
+    if maxMult > 2.5 then issues[#issues + 1] = ('a cargo payMult of %s (recommended max 2.1)'):format(maxMult) end
+    if #issues > 0 then
+        print('^3[truckco] Economy: your config.lua still has the old high-pay settings: ' .. table.concat(issues, '; ')
+            .. '. Copy Config.Board, Config.Cargo, Config.NPC and Config.Economy from the repo config.lua to get the rebalanced economy.^0')
+    end
+end)

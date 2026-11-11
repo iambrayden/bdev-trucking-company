@@ -271,6 +271,7 @@ VIEWS.finance = async () => {
   h += `<div class="card mt12"><h3>Where the money goes</h3><div class="kv">
     <div class="k">Income</div><div class="v">Delivered loads, insurance claims, sold trucks</div>
     <div class="k">Every payroll</div><div class="v">Wages, insurance premiums, property upkeep, loan installments</div>
+    <div class="k">Every load</div><div class="v">Fuel (per km) and tolls / permits</div>
     <div class="k">One-off</div><div class="v">Trucks, repairs, training, recruiter fees, upgrades, bonuses</div>
     <div class="k">Penalties</div><div class="v">Failed loads, truck recovery, driver commission</div>
   </div></div>`;

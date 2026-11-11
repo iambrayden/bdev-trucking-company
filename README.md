@@ -181,6 +181,27 @@ Walk to the orange door marker and press **E**. You can also use the ox_target s
 
 Uncomment the `office_shell` example in `Config.Interiors`, set its `model` to your shell (e.g. `shell_office1`), adjust the offsets, and set a property's `interior = 'office_shell'`.
 
+## Economy balance
+
+Version 1.3 rebalanced the economy, because the old settings let a mid-size company earn about $190k/hour. Rough modelled results with the shipped `config.lua` (before accidents, idle time and lost bids):
+
+| Company | Net per hour |
+|---|---|
+| Small: 2 NPC trucks, rep 40 | ~ $1k (grow by driving loads yourself) |
+| Mid: 5 NPC trucks, rep 60 | ~ $11k |
+| Maxed: 12 NPC trucks, rep 100 | ~ $19k |
+| One player driving top loads | ~ $14k company income + their 15% cut |
+
+What changed:
+
+- **Pay:** $200/km (was $350), minimum pay $1,200 (was $2,500), premium multipliers capped at 2.1× (was 3.4×), multi-stop +10% per stop (was +25%), express ×1.25 (was ×1.5).
+- **Running costs on every load:** fuel at $12/km (×1.5 for NPC drivers) plus a $150 toll/permit fee.
+- **NPC drivers are slower:** 0.8 km/min, plus 5 minutes to load and 3 minutes per extra stop (about 2 loads per truck per hour, was 4).
+- **Overheads:** more wear and higher repair cost per point, NPC wages up 25%, recruiter fee $3,000, higher property upkeep.
+- **Market saturation:** past `Config.Economy.hourlySoftCap` ($75k of deliveries in the last hour), loads pay only 30%. The ledger marks these loads "market saturated".
+
+**If you keep your own `config.lua`**, these values only apply once you copy `Config.Board`, `Config.Cargo`, `Config.NPC`, `Config.Fleet`, `Config.Insurance` and `Config.Economy` from the repo; the server console warns while the old pay settings are still in use. To test your own numbers before going live, run `python3 docs/tools/economy-sim.py config.lua "test"`.
+
 ## Updating & troubleshooting
 
 - **Always replace the whole folder** when updating, then run in the server console:
