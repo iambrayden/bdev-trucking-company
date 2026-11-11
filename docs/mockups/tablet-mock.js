@@ -98,7 +98,7 @@
     { id: 153, cargo: 'electronics', cargoLabel: 'High-Value Electronics', class: 'box', certs: [], minRep: 35, stops: [loc('La Mesa Warehouses'), loc('Rancho Industrial')], pickup: loc('Elysian Container Yard'), dropoff: loc('Strawberry Mega Mall'), distance: 9.4, max_pay: 7900, my_bid: null, bid_count: 0, closesIn: 182, eligible: true },
     { id: 154, cargo: 'machinery', cargoLabel: 'Heavy Machinery', class: 'semi', certs: ['cdl', 'oversize'], minRep: 30, pickup: loc('Buccaneer Way Docks'), dropoff: loc('Davis Quartz Quarry'), distance: 9.6, max_pay: 8400, my_bid: null, bid_count: 1, closesIn: 281, eligible: true },
     { id: 155, cargo: 'chemicals', cargoLabel: 'Industrial Chemicals', class: 'semi', certs: ['cdl', 'hazmat'], minRep: 60, pickup: loc('Port of LS - Lot A'), dropoff: loc('Humane Labs'), distance: 11.4, max_pay: 14300, my_bid: null, bid_count: 4, closesIn: 310, eligible: false },
-    { id: 156, cargo: 'produce', cargoLabel: 'Refrigerated Produce', class: 'semi', certs: ['cdl'], minRep: 10, pickup: loc('Elysian Container Yard'), dropoff: loc('Grapeseed Farms'), distance: 10.9, max_pay: 6100, my_bid: null, bid_count: 1, closesIn: 415, eligible: true },
+    { id: 156, cargo: 'produce', cargoLabel: 'Refrigerated Produce', class: 'semi', certs: ['cdl'], minRep: 10, pickup: loc('Elysian Container Yard'), dropoff: loc('Grapeseed McKenzie Field'), distance: 10.9, max_pay: 6100, my_bid: null, bid_count: 1, closesIn: 415, eligible: true },
   ];
 
   const loads = [

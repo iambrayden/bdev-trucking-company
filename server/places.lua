@@ -236,3 +236,110 @@ lib.callback.register('truckco:server:getDefaultLayout', function(src)
     end
     return TC.result(true, nil, { items = g.items or {}, overrides = overrides })
 end)
+
+--------------------------------------------------------------------------------
+-- Route points (pickups, drop-offs, collection stops): admins can move or
+-- disable any of them in-game. Overrides live in truckco_settings as
+--   'route:<kind>:<label>' = { x, y, z, w } or { disabled = true }
+--------------------------------------------------------------------------------
+local ROUTE_LISTS = { pickup = 'Pickups', destination = 'Destinations', collection = 'CollectionPoints' }
+local ROUTE_LABEL = { pickup = 'Pickup', destination = 'Drop-off', collection = 'Collection stop' }
+
+local function routeKey(kind, label) return ('route:%s:%s'):format(kind, label) end
+
+--- Effective, enabled points for a kind: { { label, coords }, ... }
+function TC.routePoints(kind)
+    local out = {}
+    for _, p in ipairs(Config[ROUTE_LISTS[kind]] or {}) do
+        local o = TC.settings[routeKey(kind, p.label)]
+        if not (o and o.disabled) then
+            local c = p.coords
+            if o and tonumber(o.x) then
+                c = kind == 'pickup' and vec4(o.x, o.y, o.z, o.w or 0.0) or vec3(o.x, o.y, o.z)
+            end
+            out[#out + 1] = { label = p.label, coords = c }
+        end
+    end
+    return out
+end
+
+lib.callback.register('truckco:server:adminRoutePoints', function(src)
+    if not TC.isAdmin(src) then return TC.result(false, 'Admins only.') end
+    local pos = GetEntityCoords(GetPlayerPed(src))
+    local list = {}
+    for kind, cfgName in pairs(ROUTE_LISTS) do
+        for _, p in ipairs(Config[cfgName] or {}) do
+            local o = TC.settings[routeKey(kind, p.label)] or {}
+            local c = tonumber(o.x) and vec3(o.x, o.y, o.z) or vec3(p.coords.x, p.coords.y, p.coords.z)
+            list[#list + 1] = {
+                kind = kind, kindLabel = ROUTE_LABEL[kind], label = p.label,
+                distance = math.floor(TC.distance(pos, c)), moved = tonumber(o.x) ~= nil, disabled = o.disabled == true,
+                x = c.x, y = c.y,
+            }
+        end
+    end
+    table.sort(list, function(a, b) return a.distance < b.distance end)
+    return TC.result(true, nil, list)
+end)
+
+--- Update contracts that haven't been driven yet so a moved spot applies right away.
+local function retargetContracts(kind, label, coords)
+    local field = kind == 'pickup' and 'pickup' or kind == 'destination' and 'dropoff' or nil
+    local rows = MySQL.query.await("SELECT id, pickup, dropoff, stops FROM truckco_contracts WHERE status IN ('open','awarded','assigned')") or {}
+    local n = 0
+    for _, r in ipairs(rows) do
+        if field then
+            local p = json.decode(r[field] or '{}') or {}
+            if p.label == label then
+                p.x, p.y, p.z = coords.x, coords.y, coords.z
+                if coords.w then p.w = coords.w end
+                MySQL.update.await(('UPDATE truckco_contracts SET %s = ? WHERE id = ?'):format(field), { json.encode(p), r.id })
+                n = n + 1
+            end
+        elseif r.stops then
+            local stops, changed = json.decode(r.stops) or {}, false
+            for _, st in ipairs(stops) do
+                if st.label == label then st.x, st.y, st.z = coords.x, coords.y, coords.z changed = true end
+            end
+            if changed then
+                MySQL.update.await('UPDATE truckco_contracts SET stops = ? WHERE id = ?', { json.encode(stops), r.id })
+                n = n + 1
+            end
+        end
+    end
+    return n
+end
+
+lib.callback.register('truckco:server:adminSetRoutePoint', function(src, kind, label, action)
+    if not TC.isAdmin(src) then return TC.result(false, 'Admins only.') end
+    if not ROUTE_LISTS[kind] or type(label) ~= 'string' then return TC.result(false, 'Unknown spot.') end
+    local exists = false
+    for _, p in ipairs(Config[ROUTE_LISTS[kind]] or {}) do if p.label == label then exists = true end end
+    if not exists then return TC.result(false, 'Unknown spot.') end
+    local key = routeKey(kind, label)
+    local o = TC.settings[key] or {}
+    if action == 'move' then
+        if GetPlayerRoutingBucket(src) ~= 0 then return TC.result(false, 'Step outside first.') end
+        local ped = GetPlayerPed(src)
+        local veh = GetVehiclePedIsIn(ped, false)
+        local ent = veh ~= 0 and veh or ped
+        local pos, heading = GetEntityCoords(ent), GetEntityHeading(ent)
+        o.x, o.y, o.z, o.w = round(pos.x), round(pos.y), round(pos.z), round(heading)
+        o.disabled = nil
+        TC.setSetting(key, o)
+        local n = retargetContracts(kind, label, vec4(o.x, o.y, o.z, o.w))
+        return TC.result(true, ('%s "%s" moved here.%s'):format(ROUTE_LABEL[kind], label, n > 0 and (' Updated %d open contract(s).'):format(n) or ''))
+    elseif action == 'disable' then
+        o.disabled = true
+        TC.setSetting(key, o)
+        return TC.result(true, ('%s "%s" disabled: no new jobs will use it.'):format(ROUTE_LABEL[kind], label))
+    elseif action == 'enable' then
+        o.disabled = nil
+        TC.setSetting(key, o)
+        return TC.result(true, ('%s "%s" enabled.'):format(ROUTE_LABEL[kind], label))
+    elseif action == 'reset' then
+        TC.setSetting(key, {})
+        return TC.result(true, ('%s "%s" reset to the config position.'):format(ROUTE_LABEL[kind], label))
+    end
+    return TC.result(false, 'Unknown action.')
+end)

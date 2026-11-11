@@ -188,7 +188,7 @@ D.Pickups = {
 D.Destinations = {
     { label = 'Paleto Bay Sawmill',        coords = vec3(-576.0, 5245.0, 70.5) },
     { label = 'Paleto Globe Oil',          coords = vec3(174.0, 6600.0, 31.8) },
-    { label = 'Grapeseed Farms',           coords = vec3(2441.0, 4973.0, 46.8) },
+    { label = 'Grapeseed McKenzie Field',  coords = vec3(2121.7, 4796.3, 41.1) },
     { label = 'Sandy Shores Airfield',     coords = vec3(1740.0, 3290.0, 41.1) },
     { label = 'Harmony Garage',            coords = vec3(1180.0, 2640.0, 37.8) },
     { label = 'Senora Desert RON',         coords = vec3(2680.0, 3265.0, 55.2) },

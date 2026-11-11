@@ -30,12 +30,16 @@ local function generateContract()
     local B = Config.Board
     local cargoKey = cargoKeys[math.random(#cargoKeys)]
     local cargo = Config.Cargo[cargoKey]
-    local pickup = Config.Pickups[math.random(#Config.Pickups)]
-    local dest = Config.Destinations[math.random(#Config.Destinations)]
+    -- effective spots (admins can move / disable them in-game)
+    local pickups = TC.routePoints and TC.routePoints('pickup') or Config.Pickups
+    local dests = TC.routePoints and TC.routePoints('destination') or Config.Destinations
+    if #pickups == 0 or #dests == 0 then return end
+    local pickup = pickups[math.random(#pickups)]
+    local dest = dests[math.random(#dests)]
 
     -- multi-stop: extra collection stops between pickup and drop-off
     local stops = {}
-    local pool = Config.CollectionPoints or {}
+    local pool = TC.routePoints and TC.routePoints('collection') or (Config.CollectionPoints or {})
     if #pool > 0 and math.random() < (B.multiStopChance or 0) then
         local n = math.random(1, math.min(B.multiStopMax or 3, #pool))
         local used = {}

@@ -607,6 +607,42 @@ local function setPlace(kind, scope)
     return TCC.call('setPlace', kind, scope)
 end
 
+--- Admin: list every pickup / drop-off / collection stop (nearest first) and move or disable them.
+function TCC.openRouteEditor()
+    local res = lib.callback.await('truckco:server:adminRoutePoints', false)
+    if not res or not res.ok then return TCC.notify(res and res.msg or 'Not allowed.', 'error') end
+    local options = {}
+    for _, p in ipairs(res.data) do
+        local state = p.disabled and 'disabled' or (p.moved and 'moved in-game' or 'config position')
+        options[#options + 1] = {
+            title = ('%s: %s'):format(p.kindLabel, p.label),
+            description = ('%dm away • %s'):format(p.distance, state),
+            icon = p.disabled and 'ban' or (p.kind == 'pickup' and 'location-dot' or p.kind == 'destination' and 'flag-checkered' or 'box'),
+            iconColor = p.disabled and 'red' or nil,
+            arrow = true,
+            onSelect = function()
+                local function act(action) TCC.call('adminSetRoutePoint', p.kind, p.label, action) end
+                lib.registerContext({
+                    id = 'truckco_route_point', title = p.label, menu = 'truckco_routes',
+                    options = {
+                        { title = 'Move it here', description = 'Uses where you stand (or your vehicle, with its heading). Open contracts update too.', icon = 'location-crosshairs', onSelect = function() act('move') end },
+                        p.disabled and { title = 'Enable', icon = 'check', onSelect = function() act('enable') end }
+                            or { title = 'Disable', description = 'No new jobs will use this spot', icon = 'ban', onSelect = function() act('disable') end },
+                        { title = 'Reset to config position', icon = 'rotate-left', disabled = not p.moved, onSelect = function() act('reset') end },
+                        { title = 'Set GPS to it', description = 'Drive there to check it', icon = 'route', onSelect = function()
+                            SetNewWaypoint(p.x, p.y)
+                            TCC.notify(('Waypoint set to %s.'):format(p.label), 'inform')
+                        end },
+                    },
+                })
+                lib.showContext('truckco_route_point')
+            end,
+        }
+    end
+    lib.registerContext({ id = 'truckco_routes', title = 'Pickups & drop-offs (admin)', options = options })
+    lib.showContext('truckco_routes')
+end
+
 RegisterNetEvent('truckco:client:furnish', function()
     if editing then return end
     local options
@@ -629,6 +665,8 @@ RegisterNetEvent('truckco:client:furnish', function()
             { title = 'Move this depot entrance here', description = 'Nearest depot within 80m; blip and door move for everyone', icon = 'door-closed', onSelect = function() setPlace('entrance', 'default') end },
             { title = 'Set default truck pickup here', description = 'Where company trucks are pulled out (sit in a vehicle to use its position)', icon = 'truck', onSelect = function() setPlace('truckSpawn', 'default') end },
             { title = 'Set default truck return here', description = 'Where drivers drop trucks back off', icon = 'square-parking', onSelect = function() setPlace('truckReturn', 'default') end },
+            { title = 'Pickups & drop-offs', description = 'Move or disable job locations (nearest first). Stand where it should be, or sit in a truck.', icon = 'map-location-dot', arrow = true,
+              onSelect = function() TCC.openRouteEditor() end },
         }
     end
     lib.registerContext({ id = 'truckco_furnish', title = office and 'Office setup (admin)' or 'Depot setup (admin)', options = options })

@@ -91,6 +91,7 @@ Buy a depot down by the docks, build out the empty office shell, hire staff (NPC
 | `/truckco_signtest` | anyone | Draw a test sign in front of you for 30s (render check) |
 | `/truckco_pos` | admin | Copy your current `vec4` for config |
 | `/truckco_furnish` | admin | In-game defaults saved to the database. Outside: move a depot entrance, set truck pickup/return. Inside: default furniture, exit, arrival point, time clock |
+| `/truckco_furnish` → *Pickups & drop-offs* | admin | Outside: move, disable or reset any pickup, drop-off or collection stop where you stand; open contracts update too |
 | `/truckco_board [n]` | admin | Force-generate contracts |
 | `/truckco_cadsync` | admin | Register all existing company trucks in Imperial CAD |
 | `/truckco_givefunds <companyId> <amount>` | admin | Adjust a company balance |
@@ -180,6 +181,15 @@ Walk to the orange door marker and press **E**. You can also use the ox_target s
 ### Using a shell instead of a vanilla interior
 
 Uncomment the `office_shell` example in `Config.Interiors`, set its `model` to your shell (e.g. `shell_office1`), adjust the offsets, and set a property's `interior = 'office_shell'`.
+
+## Fixing job locations in-game
+
+The pickup, drop-off and collection coordinates in `config.lua` are best guesses. If one is bad (inside a building, too tight for a trailer, under the map), fix it without editing files:
+
+1. As an admin, go outside and run `/truckco_furnish` → **Pickups & drop-offs**. Every spot is listed, nearest first, with whether it's been moved or disabled.
+2. Pick a spot. **Set GPS to it** to drive there and check it, then stand (or park a truck) where it should be and choose **Move it here**. **Disable** takes a spot out of rotation entirely; **Reset** returns it to the config position.
+
+Changes save to the database. Contracts that are on the board, awarded or assigned but not yet driven are updated immediately.
 
 ## Economy balance
 
